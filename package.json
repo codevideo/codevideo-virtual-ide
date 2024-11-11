@@ -38,5 +38,8 @@
   },
   "peerDependencies": {
     "@fullstackcraftllc/codevideo-types": "^1.5.5"
+  },
+  "dependencies": {
+    "@fullstackcraftllc/codevideo-virtual-code-block": "^1.4.0"
   }
 }
