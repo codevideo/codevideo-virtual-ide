@@ -14,41 +14,87 @@ import { VirtualEditor } from '@fullstackcraftllc/codevideo-virtual-editor';
 import { VirtualTerminal } from '@fullstackcraftllc/codevideo-virtual-terminal';
 import { VirtualAuthor } from '@fullstackcraftllc/codevideo-virtual-author';
 
-const virtualEditor = new VirtualEditor();
-const virtualTerminal = new VirtualTerminal();
-const virtualAuthor = new VirtualAuthor();
-
 const virtualIDE = new VirtualIDE();
+virtualIDE.addVirtualEditor(new VirtualEditor());
+virtualIDE.addVirtualTerminal(new VirtualTerminal());
+virtualIDE.addVirtualAuthor(new VirtualAuthor());
 
-virtualIDE.addVirtualEditor(virtualEditor);
-virtualIDE.addVirtualTerminal(virtualTerminal);
-virtualIDE.addVirtualAuthor(virtualAuthor);
-
+// Create a basic project structure
 virtualIDE.applyAction({
   name: 'create-folder',
-  value: 'src',
-})
+  value: 'src'
+});
 
 virtualIDE.applyAction({
   name: 'create-file',
-  value: 'src/index.js',
-})
+  value: 'src/index.js'
+});
 
+// Add narration
 virtualIDE.applyAction({
-  name: 'open-file',
-  value: 'src/index.js',
-})
+  name: 'speak-before',
+  value: "Let's create a simple JavaScript program."
+});
+
+// Open and edit the file
+virtualIDE.applyAction({
+  name: 'click-filename',
+  value: 'src/index.js'
+});
 
 virtualIDE.applyAction({
   name: 'type-editor',
-  value: 'console.log("Hello, World!")',
-})
+  value: 'console.log("Hello, World!");'
+});
+
+// Execute in terminal
+virtualIDE.applyAction({
+  name: 'open-terminal',
+  value: '1'
+});
 
 virtualIDE.applyAction({
   name: 'type-terminal',
-  value: 'node src/index.js',
-})
+  value: 'node src/index.js'
+});
 
+const courseSnapshot = virtualIDE.getCourseSnapshot();
+
+console.log(courseSnapshot);
+/* Output:
+{
+  editorSnapshot: {
+    fileStructure: {
+      src: {
+        type: 'directory',
+        content: '',
+        collapsed: false,
+        children: {
+          'index.js': {
+            type: 'file',
+            content: 'console.log("Hello, World!");',
+            language: 'js',
+            caretPosition: { row: 0, col: 27 }
+          }
+        }
+      }
+    },
+    currentFile: 'src/index.js',
+    terminalContents: 'node src/index.js'
+  },
+  mouseSnapshot: {
+    x: 0,
+    y: 0,
+    timestamp: 0,
+    type: 'move',
+    buttonStates: { left: false, right: false, middle: false },
+    scrollPosition: { x: 0, y: 0 }
+  },
+  authorSnapshot: {
+    currentSpeechCaption: ""
+  }
+}
+*/
 ```
 
 ## Why?
