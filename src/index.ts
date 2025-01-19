@@ -1,1 +1,1 @@
-export { VirtualEditor } from './VirtualEditor';
+export { VirtualIDE } from './VirtualIDE';

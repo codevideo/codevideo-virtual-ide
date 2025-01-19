@@ -1,5 +1,5 @@
 {
-  "name": "@fullstackcraftllc/codevideo-virtual-editor",
+  "name": "@fullstackcraftllc/codevideo-virtual-ide",
   "version": "1.0.0",
   "description": "TypeScript class that simulates a full IDE.",
   "type": "module",
@@ -16,10 +16,10 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/codevideo/codevideo-virtual-editor.git"
+    "url": "https://github.com/codevideo/codevideo-virtual-ide.git"
   },
   "issues": {
-    "url": "https://github.com/codevideo/codevideo-virtual-editor/issues"
+    "url": "https://github.com/codevideo/codevideo-virtual-ide/issues"
   },
   "author": "Chris Frewin",
   "license": "MIT",
@@ -37,9 +37,12 @@
     "typescript": "^5.4.2"
   },
   "peerDependencies": {
-    "@fullstackcraftllc/codevideo-types": "^1.5.5"
+    "@fullstackcraftllc/codevideo-types": "^1.8.13"
   },
   "dependencies": {
-    "@fullstackcraftllc/codevideo-virtual-code-block": "^1.4.0"
+    "@fullstackcraftllc/codevideo-virtual-author": "^1.0.0",
+    "@fullstackcraftllc/codevideo-virtual-editor": "^1.5.0",
+    "@fullstackcraftllc/codevideo-virtual-file-explorer": "^1.0.2",
+    "@fullstackcraftllc/codevideo-virtual-terminal": "^1.0.0"
   }
 }

@@ -1,120 +1,234 @@
-import { VirtualEditor } from "./../../src/VirtualEditor";
-import { describe, expect } from "@jest/globals";
+import { VirtualIDE } from "../../src/VirtualIDE";
+import { describe, expect, it } from "@jest/globals";
 import { IAction } from "@fullstackcraftllc/codevideo-types";
+import { VirtualAuthor } from "@fullstackcraftllc/codevideo-virtual-author";
+import { VirtualTerminal } from "@fullstackcraftllc/codevideo-virtual-terminal";
 
-describe("VirtualEditor", () => {
-  describe("full audit of complex steps", () => {
-    it("should have correct state for everything at every step", () => {
-      const virtualEditor = new VirtualEditor([]);
-      const realExampleActions: IAction[] = [
-        // 0
+describe("VirtualIDE", () => {
+  describe("complex tutorial scenario", () => {
+    it("should maintain correct state throughout a complete tutorial", () => {
+      const virtualIDE = new VirtualIDE();
+      virtualIDE.addVirtualTerminal(new VirtualTerminal());
+      virtualIDE.addVirtualAuthor(new VirtualAuthor());
+      const tutorialActions: IAction[] = [
+        // Initial setup explanation
         {
           name: "speak-before",
-          value:
-            "Let's learn how to use the console.log function in JavaScript!",
+          value: "Today, we're going to learn about how to use the console.log function in JavaScript."
         },
-        // 1
         {
           name: "speak-before",
-          value:
-            "First, to make it clear that this is a JavaScript file, I'll just put a comment here",
+          value: "Let's first create a src folder."
         },
-        // 2
+        {
+          name: "create-folder",
+          value: "src"
+        },
+        {
+          name: "speak-before",
+          value: "and now let's create a hello-world.js file inside it."
+        },
+        {
+          name: "create-file",
+          value: "src/hello-world.js"
+        },
+
+        // Opening and editing the first file
+        {
+          name: "speak-before",
+          value: "Let's open up hello-world.js now..."
+        },
+        {
+          name: "click-filename",
+          value: "src/hello-world.js"
+        },
+        {
+          name: "click-editor",
+          value: "1"
+        },
         {
           name: "type-editor",
-          value: "// index.js",
+          value: "console.log('Hello, world!');"
         },
-        // 3
+        {
+          name: "save-editor",
+          value: "1"
+        },
+
+        // Terminal operations
+        {
+          name: "speak-before",
+          value: "Now we'll open up a terminal and run this file."
+        },
+        {
+          name: "open-terminal",
+          value: "1"
+        },
+        {
+          name: "click-terminal",
+          value: "1"
+        },
+        {
+          name: "type-terminal",
+          value: "node src/hello-world.js"
+        },
         {
           name: "enter",
-          value: "1",
+          value: "1"
         },
-        // 4
+
+        // Creating utility module
         {
           name: "speak-before",
-          value:
-            "For starters, let's just print 'Hello world!' to the console.",
+          value: "Let's create a utilities module for our logger."
         },
-        // 5
+        {
+          name: "create-folder",
+          value: "src/utils"
+        },
+        {
+          name: "create-file",
+          value: "src/utils/logger.js"
+        },
+        {
+          name: "click-filename",
+          value: "src/utils/logger.js"
+        },
+        {
+          name: "click-editor",
+          value: "1"
+        },
         {
           name: "type-editor",
-          value: "console.log('Hello, world!');",
+          value: "export const log = (message) => {\n    console.log(message);\n}"
         },
-        // 6
         {
-          name: "speak-before",
-          value:
-            "and if I wanted to write the value of some variable to the console, I could do that like so:",
+          name: "save-editor",
+          value: "1"
         },
-        // 7
+
+        // Updating main file
         {
-          name: "backspace",
-          value: "29",
+          name: "click-filename",
+          value: "src/hello-world.js"
         },
-        // 8
+        {
+          name: "click-editor",
+          value: "1"
+        },
         {
           name: "type-editor",
-          value: "const myVariable = 5;",
+          value: "const { log } = require('./utils/logger');\n\nlog('Hello, world!');"
         },
-        // 9
+        {
+          name: "save-editor",
+          value: "1"
+        },
+
+        // Final run
+        {
+          name: "click-terminal",
+          value: "1"
+        },
+        {
+          name: "type-terminal",
+          value: "node src/hello-world.js"
+        },
         {
           name: "enter",
-          value: "1",
-        },
-        // 10
-        {
-          name: "type-editor",
-          value: "console.log(myVariable);",
-        },
-        // 11
-        {
-          name: "speak-before",
-          value:
-            "Now, when I run this code, I would expect the value of 'myVariable' to be printed to the console. Something like:",
-        },
-        // 12
-        {
-          name: "enter",
-          value: "1",
-        },
-        // 13
-        {
-          name: "type-editor",
-          value: "// 5",
-        },
-        // 14
-        {
-            name: "speak-before",
-            value: "Console logging is simple, yet powerful and very useful!"
+          value: "1"
         }
       ];
-      virtualEditor.applyActions(realExampleActions);
-      const projectSnapshot =
-        virtualEditor.getProjectSnapshot();
-      expect(projectSnapshot).toEqual({
-        metadata: {
-          id: "unknown",
-          name: "unknown",
-          description: "unknown",
-          primaryLanguage: "unknown",
-        },
-        virtualFileSystem: {
-          files: [
-            {
-              name: "index.js",
-              content: [
-                "// index.js",
-                "console.log('Hello, world!');",
-                "const myVariable = 5;",
-                "console.log(myVariable);",
-                "// 5",
-              ],
+
+      // Apply all actions
+      virtualIDE.applyActions(tutorialActions);
+
+      // Get final state
+      const courseSnapshot = virtualIDE.getCourseSnapshot();
+
+      // Verify file structure
+      expect(courseSnapshot.editorSnapshot.fileStructure).toEqual({
+        "src": {
+          type: "directory",
+          content: "",
+          collapsed: false,
+          children: {
+            "hello-world.js": {
+              caretPosition: {
+                row: 0,
+                col: 0
+              },
+              type: "file",
+              content: "",
+              cursorPosition: {
+                x: 0,
+                y: 0
+              },
+              language: "js"
             },
-          ],
-        },
-        virtualCodeBlocks: [],
-        virtualTerminals: [],
+            "utils": {
+              type: "directory",
+              content: "",
+              collapsed: false,
+              children: {
+                "logger.js": {
+                  caretPosition: {
+                    row: 0,
+                    col: 0
+                  },
+                  type: "file",
+                  content: "",
+                  cursorPosition: {
+                    x: 0,
+                    y: 0
+                  },
+                  language: "js"
+                }
+              }
+            }
+          }
+        }
       });
+
+      // Verify open files
+      expect(virtualIDE.getOpenFiles()).toEqual([
+        "src/hello-world.js",
+        "src/utils/logger.js"
+      ]);
+
+      // Verify current file
+      expect(courseSnapshot.editorSnapshot.currentFile).toBe("src/hello-world.js");
+
+      // Verify editor contents - TODO: does it make sense to have methods on the finalstate object to get the contents of a file?
+      expect(virtualIDE.getFileContents("src/hello-world.js")).toBe(
+        "const { log } = require('./utils/logger');\n\nlog('Hello, world!');"
+      );
+      expect(virtualIDE.getFileContents("src/utils/logger.js")).toBe(
+        "export const log = (message) => {\n    console.log(message);\n}"
+      );
+
+      // Verify terminal state
+      expect(courseSnapshot.editorSnapshot.terminalContents).toBe("node src/hello-world.js");
+
+      // Verify mouse snapshot
+      expect(courseSnapshot.mouseSnapshot).toEqual({
+        x: 0,
+        y: 0,
+        timestamp: 0,
+        type: 'move',
+        buttonStates: {
+          left: false,
+          right: false,
+          middle: false,
+        },
+        scrollPosition: {
+          x: 0,
+          y: 0,
+        },
+      });
+
+      // Verify author snapshot (so far only speech caption)
+      expect(courseSnapshot.authorSnapshot.currentSpeechCaption).toBe("Let's create a utilities module for our logger.");
     });
   });
 });
