@@ -1,7 +1,7 @@
 import typescript from 'rollup-plugin-typescript2';
 import dts from 'rollup-plugin-dts';
 
-export default  [
+export default [
   // standard package
   {
     input: "src/index.ts",
@@ -10,21 +10,29 @@ export default  [
       format: "es",
     },
     plugins: [typescript()],
-    external: ["@fullstackcraftllc/codevideo-types", "@fullstackcraftllc/codevideo-virtual-file-explorer"]
+    external: [
+      "@fullstackcraftllc/codevideo-types",
+      "@fullstackcraftllc/codevideo-virtual-file-explorer",
+      "@fullstackcraftllc/codevideo-virtual-editor"
+    ]
   },
   // type declarations
   {
     input: "src/index.ts",
     output: [
       {
-        file: "dist/index.d.ts", 
+        file: "dist/index.d.ts",
         format: "es",
       },
     ],
     plugins: [
       dts(),
     ],
-    external: ["@fullstackcraftllc/codevideo-types", "@fullstackcraftllc/codevideo-virtual-file-explorer"]
+    external: [
+      "@fullstackcraftllc/codevideo-types",
+      "@fullstackcraftllc/codevideo-virtual-file-explorer",
+      "@fullstackcraftllc/codevideo-virtual-editor"
+    ]
   },
 ];
 

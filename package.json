@@ -1,6 +1,6 @@
 {
   "name": "@fullstackcraftllc/codevideo-virtual-ide",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "TypeScript class that simulates a full IDE.",
   "type": "module",
   "main": "dist/index.js",
@@ -36,13 +36,13 @@
     "rollup-plugin-typescript2": "^0.36.0",
     "typescript": "^5.4.2"
   },
-  "peerDependencies": {
-    "@fullstackcraftllc/codevideo-types": "^1.8.13"
-  },
   "dependencies": {
-    "@fullstackcraftllc/codevideo-virtual-author": "^1.0.0",
-    "@fullstackcraftllc/codevideo-virtual-editor": "^1.5.0",
-    "@fullstackcraftllc/codevideo-virtual-file-explorer": "^1.0.2",
-    "@fullstackcraftllc/codevideo-virtual-terminal": "^1.0.0"
+    "@fullstackcraftllc/codevideo-virtual-author": "^1.0.2",
+    "@fullstackcraftllc/codevideo-virtual-editor": "^1.6.1",
+    "@fullstackcraftllc/codevideo-virtual-file-explorer": "^1.0.5",
+    "@fullstackcraftllc/codevideo-virtual-terminal": "^1.0.1"
+  },
+  "peerDependencies": {
+    "@fullstackcraftllc/codevideo-types": "^2.0.5"
   }
 }

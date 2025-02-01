@@ -13,131 +13,131 @@ describe("VirtualIDE", () => {
       const tutorialActions: IAction[] = [
         // Initial setup explanation
         {
-          name: "speak-before",
+          name: "author-speak-before",
           value: "Today, we're going to learn about how to use the console.log function in JavaScript."
         },
         {
-          name: "speak-before",
+          name: "author-speak-before",
           value: "Let's first create a src folder."
         },
         {
-          name: "create-folder",
+          name: "file-explorer-create-folder",
           value: "src"
         },
         {
-          name: "speak-before",
+          name: "author-speak-before",
           value: "and now let's create a hello-world.js file inside it."
         },
         {
-          name: "create-file",
+          name: "file-explorer-create-file",
           value: "src/hello-world.js"
         },
 
         // Opening and editing the first file
         {
-          name: "speak-before",
+          name: "author-speak-before",
           value: "Let's open up hello-world.js now..."
         },
         {
-          name: "click-filename",
+          name: "file-explorer-open-file", // how to constitute with 'click-filename'?
           value: "src/hello-world.js"
         },
         {
-          name: "click-editor",
+          name: "mouse-click-editor",
           value: "1"
         },
         {
-          name: "type-editor",
+          name: "editor-type",
           value: "console.log('Hello, world!');"
         },
         {
-          name: "save-editor",
+          name: "editor-save",
           value: "1"
         },
 
         // Terminal operations
         {
-          name: "speak-before",
+          name: "author-speak-before",
           value: "Now we'll open up a terminal and run this file."
         },
         {
-          name: "open-terminal",
+          name: "terminal-open",
           value: "1"
         },
         {
-          name: "click-terminal",
+          name: "mouse-click-terminal",
           value: "1"
         },
         {
-          name: "type-terminal",
+          name: "terminal-type",
           value: "node src/hello-world.js"
         },
         {
-          name: "enter",
+          name: "terminal-enter",
           value: "1"
         },
 
         // Creating utility module
         {
-          name: "speak-before",
+          name: "author-speak-before",
           value: "Let's create a utilities module for our logger."
         },
         {
-          name: "create-folder",
+          name: "file-explorer-create-folder",
           value: "src/utils"
         },
         {
-          name: "create-file",
+          name: "file-explorer-create-file",
           value: "src/utils/logger.js"
         },
         {
-          name: "click-filename",
+          name: "file-explorer-open-file",
           value: "src/utils/logger.js"
         },
         {
-          name: "click-editor",
+          name: "mouse-click-editor",
           value: "1"
         },
         {
-          name: "type-editor",
+          name: "editor-type",
           value: "export const log = (message) => {\n    console.log(message);\n}"
         },
         {
-          name: "save-editor",
+          name: "editor-save",
           value: "1"
         },
 
         // Updating main file
         {
-          name: "click-filename",
+          name: "mouse-click-filename",
           value: "src/hello-world.js"
         },
         {
-          name: "click-editor",
+          name: "mouse-click-editor",
           value: "1"
         },
         {
-          name: "type-editor",
+          name: "editor-backspace",
+          value: "40"
+        },
+        {
+          name: "editor-type",
           value: "const { log } = require('./utils/logger');\n\nlog('Hello, world!');"
         },
         {
-          name: "save-editor",
+          name: "editor-save",
           value: "1"
         },
 
         // Final run
         {
-          name: "click-terminal",
+          name: "mouse-click-terminal",
           value: "1"
         },
         {
-          name: "type-terminal",
+          name: "terminal-type",
           value: "node src/hello-world.js"
         },
-        {
-          name: "enter",
-          value: "1"
-        }
       ];
 
       // Apply all actions
@@ -190,7 +190,6 @@ describe("VirtualIDE", () => {
         }
       });
 
-      // Verify open files
       expect(virtualIDE.getOpenFiles()).toEqual([
         "src/hello-world.js",
         "src/utils/logger.js"
@@ -209,6 +208,10 @@ describe("VirtualIDE", () => {
 
       // Verify terminal state
       expect(courseSnapshot.editorSnapshot.terminalContents).toBe("node src/hello-world.js");
+
+      // after issuing terminal-enter, the terminal should be empty
+      virtualIDE.applyAction({ name: "terminal-enter", value: "1" });
+      expect(virtualIDE.getCourseSnapshot().editorSnapshot.terminalContents).toBe("");
 
       // Verify mouse snapshot
       expect(courseSnapshot.mouseSnapshot).toEqual({
