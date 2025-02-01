@@ -123,7 +123,7 @@ export class VirtualIDE {
   }
 
   // TODO: may one day be better to delegate to a VirtualEditor _within_ VirtualFileExplorer
-  getFileContents(fileName: string): string {
+  getFileContents(fileName?: string): string {
     return this.virtualEditors.find((editor) => editor.fileName === fileName)?.virtualEditor.getCode() || '';
   }
 
@@ -132,11 +132,17 @@ export class VirtualIDE {
   }
 
   getEditorSnapshot(): IEditorSnapshot {
+    const currentEditorIndex = this.virtualEditors.findIndex((editor) => 
+      editor.fileName === this.currentFile
+    );
+    const currentEditor = currentEditorIndex !== -1 ? this.virtualEditors[currentEditorIndex].virtualEditor : null;
     return {
       fileStructure: this.virtualFileExplorer.getCurrentFileStructure(),
       currentFile: this.currentFile,
       openFiles: [],
       terminalContents: this.virtualTerminals[0].getCurrentCommand(),
+      currentCaretPosition: currentEditor ? currentEditor.getCurrentCaretPosition() : { row: 1, col: 1 },
+      currentHighlightCoordinates: currentEditor ? currentEditor.getCurrentHighlightCoordinates() : null,
     }
   }
 
