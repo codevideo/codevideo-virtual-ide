@@ -147,7 +147,7 @@ describe("VirtualIDE", () => {
       const courseSnapshot = virtualIDE.getCourseSnapshot();
 
       // Verify file structure
-      expect(courseSnapshot.editorSnapshot.fileStructure).toEqual({
+      expect(courseSnapshot.fileExplorerSnapshot.fileStructure).toEqual({
         "src": {
           type: "directory",
           content: "",
@@ -195,23 +195,20 @@ describe("VirtualIDE", () => {
         "src/utils/logger.js"
       ]);
 
-      // Verify current file
-      expect(courseSnapshot.editorSnapshot.currentFile).toBe("src/hello-world.js");
-
-      // Verify editor contents - TODO: does it make sense to have methods on the finalstate object to get the contents of a file?
-      expect(virtualIDE.getFileContents("src/hello-world.js")).toBe(
-        "const { log } = require('./utils/logger');\n\nlog('Hello, world!');"
-      );
-      expect(virtualIDE.getFileContents("src/utils/logger.js")).toBe(
-        "export const log = (message) => {\n    console.log(message);\n}"
-      );
+      // Verify editors state
+      expect(courseSnapshot.editorSnapshot.editors[0].filename).toBe("src/hello-world.js");
+      expect(courseSnapshot.editorSnapshot.editors[0].content).toBe("const { log } = require('./utils/logger');\n\nlog('Hello, world!');")
+      expect(courseSnapshot.editorSnapshot.editors[0].isSaved).toBe(true);
+      expect(courseSnapshot.editorSnapshot.editors[1].filename).toBe("src/utils/logger.js");
+      expect(courseSnapshot.editorSnapshot.editors[1].content).toBe("export const log = (message) => {\n    console.log(message);\n}");
+      expect(courseSnapshot.editorSnapshot.editors[1].isSaved).toBe(true);
 
       // Verify terminal state
-      expect(courseSnapshot.editorSnapshot.terminalContents).toBe("node src/hello-world.js");
+      expect(courseSnapshot.terminalSnapshot.terminals[0].content).toBe("node src/hello-world.js");
 
       // after issuing terminal-enter, the terminal should be empty
       virtualIDE.applyAction({ name: "terminal-enter", value: "1" });
-      expect(virtualIDE.getCourseSnapshot().editorSnapshot.terminalContents).toBe("");
+      expect(virtualIDE.getCourseSnapshot().terminalSnapshot.terminals[0].content).toBe("");
 
       // Verify mouse snapshot
       expect(courseSnapshot.mouseSnapshot).toEqual({
@@ -231,7 +228,7 @@ describe("VirtualIDE", () => {
       });
 
       // Verify author snapshot (so far only speech caption)
-      expect(courseSnapshot.authorSnapshot.currentSpeechCaption).toBe("Let's create a utilities module for our logger.");
+      expect(courseSnapshot.authorSnapshot.authors[0].currentSpeechCaption).toBe("Let's create a utilities module for our logger.");
     });
   });
 });

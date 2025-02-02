@@ -7,7 +7,10 @@ import {
   IEditorSnapshot,
   IAuthorSnapshot,
   isEditorAction,
-  isAuthorAction
+  isAuthorAction,
+  ICourse,
+  IFileExplorerSnapshot,
+  ITerminalSnapshot
 } from "@fullstackcraftllc/codevideo-types";
 import { VirtualFileExplorer } from "@fullstackcraftllc/codevideo-virtual-file-explorer";
 import { VirtualEditor } from "@fullstackcraftllc/codevideo-virtual-editor";
@@ -24,21 +27,79 @@ import { VirtualAuthor } from "@fullstackcraftllc/codevideo-virtual-author";
  */
 export class VirtualIDE {
   private virtualFileExplorer: VirtualFileExplorer;
-  private virtualEditors: Array<{fileName: string, virtualEditor: VirtualEditor}> = [];
+  private virtualEditors: Array<{ fileName: string, virtualEditor: VirtualEditor }> = [];
   private virtualTerminals: Array<VirtualTerminal> = [];
-  private currentFile: string | null = null;
+  private currentEditorIndex: number = 0;
   private currentTerminalIndex: number = 0;
+  private currentAuthorIndex: number = 0;
   private currentCursorPosition: { x: number; y: number } = { x: -1, y: -1 }; // x is column, y is row - we allow both to be negative because a user may not want to have a cursor shown or used
 
   // TODO: modify getOpenFiles in VirtualFileExplorer to return a list of FileItems, not strings
   //private openFiles: Array<FileItem> = [];
   private virtualAuthors: Array<VirtualAuthor> = [];
 
-  constructor() {
+  constructor(course?: ICourse, initialActionIndex?: number) {
+    // always initialize to completely empty state
     this.virtualFileExplorer = new VirtualFileExplorer();
     this.virtualEditors = [];
     this.virtualTerminals = [];
     this.virtualAuthors = [];
+
+    // if course is defined, reconstitute the virtual IDE from the course at the given action index
+    // if given action index is not defined, reconstitute the virtual IDE from the course at action index 0
+    if (course) {
+      this.reconstituteFromCourseAtActionIndex(course, initialActionIndex);
+    }
+  }
+
+  /**
+   * Reconstitutes the virtual IDE from a course at a given action index.
+   * @param course The course to reconstitute from.
+   * @param actionIndex The action index to reconstitute from.
+   */
+  private reconstituteFromCourseAtActionIndex(course: ICourse, actionIndex?: number): void {
+    if (actionIndex === undefined) {
+      actionIndex = 0;
+    }
+
+    // generate giant array of all actions from all lessons
+    const allActions = [];
+    for (const lesson of course.lessons) {
+      allActions.push(...lesson.actions);
+    }
+
+    const actionsToApply = allActions.slice(0, actionIndex);
+    this.applyActions(actionsToApply);
+
+    // // based on action index, find which lesson we are in
+    // let lessonIndex = 0;
+    // let lessonActionIndex = 0;
+    // let lesson = course.lessons[lessonIndex];
+    // while (lessonActionIndex + lesson.actions.length < actionIndex) {
+    //   lessonActionIndex += lesson.actions.length;
+    //   lessonIndex++;
+    //   lesson = course.lessons[lessonIndex];
+    // }
+
+    // // additional actions to apply to the lesson to get to the given action index
+    // const additionalActions = lesson.actions.slice(lessonActionIndex, actionIndex);
+
+    // // using the lesson we are in, use the initial snapshot + applied actions to reconstitute the virtual IDE
+    // const lessonSnapshot = lesson.initialSnapshot;
+    // // reconstruct the virtual file explorer
+    // this.virtualFileExplorer = new VirtualFileExplorer(lessonSnapshot.fileExplorerSnapshot, lessonSnapshot.fileStructure);
+    // // reconstruct each of the virtual editors
+    // for (const editor of lessonSnapshot.editorSnapshot.editors) {
+    //   this.addVirtualEditor(editor.fileName, new VirtualEditor(editor.content.split('\n')));
+    // }
+    // // reconstruct each of the virtual terminals
+    // for (const terminal of lessonSnapshot.terminalSnapshot.terminals) {
+    //   this.addVirtualTerminal(new VirtualTerminal(terminal.content, additionalActions));
+    // }
+    // // reconstruct each of the virtual authors
+    // for (const author of lessonSnapshot.authorSnapshot.authors) {
+    //   this.addVirtualAuthor(new VirtualAuthor(author.speechCaptions));
+    // }
   }
 
   /**
@@ -46,7 +107,7 @@ export class VirtualIDE {
    * @param codeBlock The virtual code block to add.
    */
   addVirtualEditor(fileName: string, virtualEditor: VirtualEditor): void {
-    this.virtualEditors.push({fileName, virtualEditor});
+    this.virtualEditors.push({ fileName, virtualEditor });
   }
 
   /**
@@ -71,37 +132,52 @@ export class VirtualIDE {
    */
   applyAction(action: IAction): void {
     if (isFileExplorerAction(action)) {
-      console.log('applying action to file explorer: ', action);
       this.virtualFileExplorer.applyAction(action);
     } else if (isEditorAction(action)) {
-      const currentEditorIndex = this.virtualEditors.findIndex((editor) => 
-        editor.fileName === this.currentFile
-      );
-      if (currentEditorIndex !== -1) {
-        console.log('applying action to editor', this.virtualEditors[currentEditorIndex].fileName);
-        // This updates the actual array element
-        this.virtualEditors[currentEditorIndex].virtualEditor.applyAction(action);
+      // if we don't have an editor yet, create one
+      if (this.virtualEditors.length === 0) {
+        this.addVirtualEditor(action.value, new VirtualEditor([]));
+        this.currentEditorIndex = 0;
       }
+      this.virtualEditors[this.currentEditorIndex].virtualEditor.applyAction(action);
     } else if (isTerminalAction(action)) {
+      // if we don't have a terminal yet, create one
+      if (this.virtualTerminals.length === 0) {
+        this.addVirtualTerminal(new VirtualTerminal());
+        this.currentTerminalIndex = 0;
+      }
       this.virtualTerminals[this.currentTerminalIndex].applyAction(action);
     } else if (isAuthorAction(action)) {
-      this.virtualAuthors.forEach((author) => {
-        author.applyAction(action);
-      });
+      // if we don't have an author yet, create one
+      if (this.virtualAuthors.length === 0) {
+        this.addVirtualAuthor(new VirtualAuthor());
+        this.currentAuthorIndex = 0;
+      }
+      this.virtualAuthors[this.currentAuthorIndex].applyAction(action);
     }
 
-    // other side effects of the virtual IDE - TODO: can we elegantly combine these with the above if/else if block?
-    switch (action.name) {
-      case "mouse-click-filename":
-      case "file-explorer-open-file":
-        this.currentFile = action.value;
-        break;
-      case "mouse-click-terminal":
-        this.currentTerminalIndex = 0;
-        break;
-      case "file-explorer-create-file":
-        this.addVirtualEditor(action.value, new VirtualEditor([""]));
-        break;
+    // file-explorer-open-file is technically a FileExplorerAction, but we need to handle it here as a cross domain to editor
+    if (action.name === "file-explorer-open-file") {
+      const filename = action.value;
+      const editorIndex = this.virtualEditors.findIndex((editor) => editor.fileName === filename);
+      if (editorIndex === -1) {
+        this.addVirtualEditor(filename, new VirtualEditor([]));
+        this.currentEditorIndex = this.virtualEditors.length - 1;
+      } else {
+        this.currentEditorIndex = editorIndex;
+      }
+    }
+
+    // likewise, mouse-click-filename is technically a MouseAction, but we need to handle it here as a cross domain to editor
+    if (action.name === "mouse-click-filename") {
+      const filename = action.value;
+      const editorIndex = this.virtualEditors.findIndex((editor) => editor.fileName === filename);
+      if (editorIndex === -1) {
+        this.addVirtualEditor(filename, new VirtualEditor([]));
+        this.currentEditorIndex = this.virtualEditors.length - 1;
+      } else {
+        this.currentEditorIndex = editorIndex;
+      }
     }
   }
 
@@ -122,27 +198,37 @@ export class VirtualIDE {
     return this.currentCursorPosition;
   }
 
-  // TODO: may one day be better to delegate to a VirtualEditor _within_ VirtualFileExplorer
-  getFileContents(fileName?: string): string {
-    return this.virtualEditors.find((editor) => editor.fileName === fileName)?.virtualEditor.getCode() || '';
-  }
-
   getOpenFiles(): Array<string> {
     return this.virtualFileExplorer.getOpenFiles();
   }
 
-  getEditorSnapshot(): IEditorSnapshot {
-    const currentEditorIndex = this.virtualEditors.findIndex((editor) => 
-      editor.fileName === this.currentFile
-    );
-    const currentEditor = currentEditorIndex !== -1 ? this.virtualEditors[currentEditorIndex].virtualEditor : null;
+  getFileExplorerSnapshot(): IFileExplorerSnapshot {
     return {
       fileStructure: this.virtualFileExplorer.getCurrentFileStructure(),
-      currentFile: this.currentFile,
-      openFiles: [],
-      terminalContents: this.virtualTerminals[0].getCurrentCommand(),
-      currentCaretPosition: currentEditor ? currentEditor.getCurrentCaretPosition() : { row: 1, col: 1 },
-      currentHighlightCoordinates: currentEditor ? currentEditor.getCurrentHighlightCoordinates() : null,
+    }
+  }
+
+  getEditorSnapshot(): IEditorSnapshot {
+    return {
+      editors: this.virtualEditors.map((editor) => {
+        return {
+          filename: editor.fileName,
+          content: editor.virtualEditor.getCode(),
+          caretPosition: editor.virtualEditor.getCurrentCaretPosition(),
+          highlightCoordinates: editor.virtualEditor.getCurrentHighlightCoordinates(),
+          isSaved: editor.virtualEditor.getIsSaved(),
+        }
+      })
+    }
+  }
+
+  getTerminalSnapshot(): ITerminalSnapshot {
+    return {
+      terminals: this.virtualTerminals.map((terminal) => {
+        return {
+          content: terminal.getCurrentCommand()
+        }
+      }),
     }
   }
 
@@ -166,7 +252,11 @@ export class VirtualIDE {
 
   getAuthorSnapshot(): IAuthorSnapshot {
     return {
-      currentSpeechCaption: this.virtualAuthors[0].getCurrentSpeechCaption(),
+      authors: this.virtualAuthors.map((author) => {
+        return {
+          currentSpeechCaption: author.getCurrentSpeechCaption()
+        }
+      }),
     }
   }
 
@@ -175,7 +265,9 @@ export class VirtualIDE {
    */
   getCourseSnapshot(): ICourseSnapshot {
     return {
+      fileExplorerSnapshot: this.getFileExplorerSnapshot(),
       editorSnapshot: this.getEditorSnapshot(),
+      terminalSnapshot: this.getTerminalSnapshot(),
       mouseSnapshot: this.getMouseSnapshot(),
       authorSnapshot: this.getAuthorSnapshot(),
     };
