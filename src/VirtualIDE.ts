@@ -70,36 +70,6 @@ export class VirtualIDE {
 
     const actionsToApply = allActions.slice(0, actionIndex);
     this.applyActions(actionsToApply);
-
-    // // based on action index, find which lesson we are in
-    // let lessonIndex = 0;
-    // let lessonActionIndex = 0;
-    // let lesson = course.lessons[lessonIndex];
-    // while (lessonActionIndex + lesson.actions.length < actionIndex) {
-    //   lessonActionIndex += lesson.actions.length;
-    //   lessonIndex++;
-    //   lesson = course.lessons[lessonIndex];
-    // }
-
-    // // additional actions to apply to the lesson to get to the given action index
-    // const additionalActions = lesson.actions.slice(lessonActionIndex, actionIndex);
-
-    // // using the lesson we are in, use the initial snapshot + applied actions to reconstitute the virtual IDE
-    // const lessonSnapshot = lesson.initialSnapshot;
-    // // reconstruct the virtual file explorer
-    // this.virtualFileExplorer = new VirtualFileExplorer(lessonSnapshot.fileExplorerSnapshot, lessonSnapshot.fileStructure);
-    // // reconstruct each of the virtual editors
-    // for (const editor of lessonSnapshot.editorSnapshot.editors) {
-    //   this.addVirtualEditor(editor.fileName, new VirtualEditor(editor.content.split('\n')));
-    // }
-    // // reconstruct each of the virtual terminals
-    // for (const terminal of lessonSnapshot.terminalSnapshot.terminals) {
-    //   this.addVirtualTerminal(new VirtualTerminal(terminal.content, additionalActions));
-    // }
-    // // reconstruct each of the virtual authors
-    // for (const author of lessonSnapshot.authorSnapshot.authors) {
-    //   this.addVirtualAuthor(new VirtualAuthor(author.speechCaptions));
-    // }
   }
 
   /**
@@ -212,6 +182,7 @@ export class VirtualIDE {
     return {
       editors: this.virtualEditors.map((editor) => {
         return {
+          isActive: editor.fileName === this.virtualEditors[this.currentEditorIndex].fileName,
           filename: editor.fileName,
           content: editor.virtualEditor.getCode(),
           caretPosition: editor.virtualEditor.getCurrentCaretPosition(),
