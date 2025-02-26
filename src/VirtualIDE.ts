@@ -10,7 +10,12 @@ import {
   isAuthorAction,
   ICourse,
   IFileExplorerSnapshot,
-  ITerminalSnapshot
+  ITerminalSnapshot,
+  Project,
+  isCourse,
+  isLesson,
+  isActions,
+  ILesson
 } from "@fullstackcraftllc/codevideo-types";
 import { VirtualFileExplorer } from "@fullstackcraftllc/codevideo-virtual-file-explorer";
 import { VirtualEditor } from "@fullstackcraftllc/codevideo-virtual-editor";
@@ -38,17 +43,26 @@ export class VirtualIDE {
   //private openFiles: Array<FileItem> = [];
   private virtualAuthors: Array<VirtualAuthor> = [];
 
-  constructor(course?: ICourse, initialActionIndex?: number) {
+  constructor(project?: Project, initialActionIndex?: number) {
     // always initialize to completely empty state
     this.virtualFileExplorer = new VirtualFileExplorer();
     this.virtualEditors = [];
     this.virtualTerminals = [];
     this.virtualAuthors = [];
 
-    // if course is defined, reconstitute the virtual IDE from the course at the given action index
-    // if given action index is not defined, reconstitute the virtual IDE from the course at action index 0
-    if (course) {
-      this.reconstituteFromCourseAtActionIndex(course, initialActionIndex);
+    // if project is defined, reconstitute the virtual IDE from the project at the given action index
+    // if given action index is not defined, reconstitute the virtual IDE from the project at action index 0
+    if (project) {
+      if (isCourse(project)) {
+        this.reconstituteFromCourseAtActionIndex(project, initialActionIndex);
+      }
+      if (isLesson(project)) {
+        this.reconstituteFromLessonAtActionIndex(project, initialActionIndex);
+      }
+      if (isActions(project)) {
+        this.reconstituteFromActionsAtActionIndex(project, initialActionIndex);
+      }
+
     }
   }
 
@@ -69,6 +83,34 @@ export class VirtualIDE {
     }
 
     const actionsToApply = allActions.slice(0, actionIndex);
+    this.applyActions(actionsToApply);
+  }
+
+  /**
+   * Reconstitutes the virtual IDE from a lesson at a given action index.
+   * @param lesson The lesson to reconstitute from.
+   * @param actionIndex The action index to reconstitute from.
+   */
+  private reconstituteFromLessonAtActionIndex(lesson: ILesson, actionIndex?: number): void {
+    if (actionIndex === undefined) {
+      actionIndex = 0;
+    }
+
+    const actionsToApply = lesson.actions.slice(0, actionIndex);
+    this.applyActions(actionsToApply);
+  }
+
+  /**
+   * Reconstitutes the virtual IDE from a series of actions at a given action index.
+   * @param actions The actions to reconstitute from.
+   * @param actionIndex The action index to reconstitute from.
+   */
+  private reconstituteFromActionsAtActionIndex(actions: IAction[], actionIndex?: number): void {
+    if (actionIndex === undefined) {
+      actionIndex = 0;
+    }
+
+    const actionsToApply = actions.slice(0, actionIndex);
     this.applyActions(actionsToApply);
   }
 
