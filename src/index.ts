@@ -1,1 +1,1 @@
-export { VirtualIDE } from './VirtualIDE';
+export { VirtualIDE, supportedCommands } from './VirtualIDE';

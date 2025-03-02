@@ -159,11 +159,7 @@ describe("VirtualIDE", () => {
                 col: 0
               },
               type: "file",
-              content: "",
-              cursorPosition: {
-                x: 0,
-                y: 0
-              },
+              content: "const { log } = require('./utils/logger');\n\nlog('Hello, world!');",
               language: "js"
             },
             "utils": {
@@ -177,11 +173,7 @@ describe("VirtualIDE", () => {
                     col: 0
                   },
                   type: "file",
-                  content: "",
-                  cursorPosition: {
-                    x: 0,
-                    y: 0
-                  },
+                  content: "export const log = (message) => {\n    console.log(message);\n}",
                   language: "js"
                 }
               }

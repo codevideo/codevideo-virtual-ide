@@ -1,13 +1,14 @@
 {
   "name": "@fullstackcraftllc/codevideo-virtual-ide",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "TypeScript class that simulates a full IDE.",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
     "build": "rollup -c ./rollup.config.js",
     "type-check": "tsc --noEmit",
-    "test": "jest",
+    "test": "jest --testPathPattern='^(?!.*__tests__\\/fixtures).*$'",
+    "test-unit": "jest --testPathPattern=unit",
     "example": "tsc && node ./dist/example.js"
   },
   "keywords": [
@@ -39,10 +40,10 @@
   "dependencies": {
     "@fullstackcraftllc/codevideo-virtual-author": "^1.0.2",
     "@fullstackcraftllc/codevideo-virtual-editor": "^1.6.4",
-    "@fullstackcraftllc/codevideo-virtual-file-explorer": "^1.0.6",
-    "@fullstackcraftllc/codevideo-virtual-terminal": "^1.0.1"
+    "@fullstackcraftllc/codevideo-virtual-file-explorer": "^1.0.13",
+    "@fullstackcraftllc/codevideo-virtual-terminal": "^1.0.6"
   },
   "peerDependencies": {
-    "@fullstackcraftllc/codevideo-types": "^2.0.13"
+    "@fullstackcraftllc/codevideo-types": "^2.0.25"
   }
 }
