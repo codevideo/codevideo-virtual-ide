@@ -15,7 +15,8 @@ import {
   isCourse,
   isLesson,
   ILesson,
-  isValidActions
+  isValidActions,
+  IVirtualLayerLog
 } from "@fullstackcraftllc/codevideo-types";
 import { VirtualFileExplorer, advancedCommandValueSeparator } from "@fullstackcraftllc/codevideo-virtual-file-explorer";
 import { VirtualEditor } from "@fullstackcraftllc/codevideo-virtual-editor";
@@ -41,22 +42,23 @@ export class VirtualIDE {
   private currentAuthorIndex: number = 0;
   private currentCursorPosition: { x: number; y: number } = { x: -1, y: -1 }; // x is column, y is row - we allow both to be negative because a user may not want to have a cursor shown or used
   private verbose: boolean = false;
+  private logs: Array<IVirtualLayerLog> = [];
 
   // TODO: modify getOpenFiles in VirtualFileExplorer to return a list of FileItems, not strings
   //private openFiles: Array<FileItem> = [];
   private virtualAuthors: Array<VirtualAuthor> = [];
 
   constructor(project?: Project, initialActionIndex?: number, verbose?: boolean) {
-    // always initialize to completely empty state
-    this.virtualFileExplorer = new VirtualFileExplorer();
-    this.virtualEditors = [];
-    this.virtualTerminals = [];
-    this.virtualAuthors = [];
-
     // if verbose is defined, set it
     if (verbose) {
       this.verbose = verbose;
     }
+
+    // always initialize to completely empty state
+    this.virtualFileExplorer = new VirtualFileExplorer(undefined, this.verbose);
+    this.virtualEditors = [];
+    this.virtualTerminals = [];
+    this.virtualAuthors = [];
 
     // if project is defined, reconstitute the virtual IDE from the project at the given action index
     // if given action index is not defined, reconstitute the virtual IDE from the project at action index 0
@@ -71,54 +73,6 @@ export class VirtualIDE {
         this.reconstituteFromActionsAtActionIndex(project, initialActionIndex);
       }
     }
-  }
-
-  /**
-   * Reconstitutes the virtual IDE from a course at a given action index.
-   * @param course The course to reconstitute from.
-   * @param actionIndex The action index to reconstitute from.
-   */
-  private reconstituteFromCourseAtActionIndex(course: ICourse, actionIndex?: number): void {
-    if (actionIndex === undefined) {
-      actionIndex = 0;
-    }
-
-    // generate giant array of all actions from all lessons
-    const allActions = [];
-    for (const lesson of course.lessons) {
-      allActions.push(...lesson.actions);
-    }
-
-    const actionsToApply = allActions.slice(0, actionIndex);
-    this.applyActions(actionsToApply);
-  }
-
-  /**
-   * Reconstitutes the virtual IDE from a lesson at a given action index.
-   * @param lesson The lesson to reconstitute from.
-   * @param actionIndex The action index to reconstitute from.
-   */
-  private reconstituteFromLessonAtActionIndex(lesson: ILesson, actionIndex?: number): void {
-    if (actionIndex === undefined) {
-      actionIndex = 0;
-    }
-
-    const actionsToApply = lesson.actions.slice(0, actionIndex);
-    this.applyActions(actionsToApply);
-  }
-
-  /**
-   * Reconstitutes the virtual IDE from a series of actions at a given action index.
-   * @param actions The actions to reconstitute from.
-   * @param actionIndex The action index to reconstitute from.
-   */
-  private reconstituteFromActionsAtActionIndex(actions: IAction[], actionIndex?: number): void {
-    if (actionIndex === undefined) {
-      actionIndex = 0;
-    }
-
-    const actionsToApply = actions.slice(0, actionIndex);
-    this.applyActions(actionsToApply);
   }
 
   /**
@@ -152,33 +106,38 @@ export class VirtualIDE {
   applyAction(action: IAction): void {
     if (isFileExplorerAction(action)) {
       if (this.verbose) console.log("VirtualIDE: Applying FILE EXPLORER ACTION", action);
+      this.logs.push({ source: 'virtual-ide', type: 'info', message: `Applying FILE EXPLORER action: ${action.name}`, timestamp: Date.now() });
       this.virtualFileExplorer.applyAction(action);
     } else if (isEditorAction(action)) {
       if (this.verbose) console.log("VirtualIDE: Applying EDITOR action", action);
+      this.logs.push({ source: 'virtual-ide', type: 'info', message: `Applying EDITOR action: ${action.name}`, timestamp: Date.now() });
       // if we don't have an editor yet, create one
       if (this.virtualEditors.length === 0) {
-        this.addVirtualEditor(action.value, new VirtualEditor([]));
+        this.addVirtualEditor(action.value, new VirtualEditor([], undefined, this.verbose));
         this.currentEditorIndex = 0;
       }
       this.virtualEditors[this.currentEditorIndex].virtualEditor.applyAction(action);
     } else if (isTerminalAction(action)) {
       if (this.verbose) console.log("VirtualIDE: Applying TERMINAL action", action);
+      this.logs.push({ source: 'virtual-ide', type: 'info', message: `Applying TERMINAL action: ${action.name}`, timestamp: Date.now() });
       // if we don't have a terminal yet, create one
       if (this.virtualTerminals.length === 0) {
-        this.addVirtualTerminal(new VirtualTerminal());
+        this.addVirtualTerminal(new VirtualTerminal(undefined, undefined, this.verbose));
         this.currentTerminalIndex = 0;
       }
       this.virtualTerminals[this.currentTerminalIndex].applyAction(action);
     } else if (isAuthorAction(action)) {
       if (this.verbose) console.log("VirtualIDE: Applying AUTHOR action", action);
+      this.logs.push({ source: 'virtual-ide', type: 'info', message: `Applying AUTHOR action: ${action.name}`, timestamp: Date.now() });
       // if we don't have an author yet, create one
       if (this.virtualAuthors.length === 0) {
-        this.addVirtualAuthor(new VirtualAuthor());
+        this.addVirtualAuthor(new VirtualAuthor(undefined, this.verbose));
         this.currentAuthorIndex = 0;
       }
       this.virtualAuthors[this.currentAuthorIndex].applyAction(action);
     } else {
       if (this.verbose) console.warn("VirtualIDE: Unknown action:", action);
+      this.logs.push({ source: 'virtual-ide', type: 'warning', message: `Unknown action: ${action.name}`, timestamp: Date.now() });
     }
 
     // file-explorer-open-file is technically a FileExplorerAction, but we need to handle it here as a cross domain to editor
@@ -186,7 +145,7 @@ export class VirtualIDE {
       const filename = action.value;
       const editorIndex = this.virtualEditors.findIndex((editor) => editor.fileName === filename);
       if (editorIndex === -1) {
-        this.addVirtualEditor(filename, new VirtualEditor([]));
+        this.addVirtualEditor(filename, new VirtualEditor([], undefined, this.verbose));
         this.currentEditorIndex = this.virtualEditors.length - 1;
       } else {
         this.currentEditorIndex = editorIndex;
@@ -198,7 +157,7 @@ export class VirtualIDE {
       const filename = action.value;
       const editorIndex = this.virtualEditors.findIndex((editor) => editor.fileName === filename);
       if (editorIndex === -1) {
-        this.addVirtualEditor(filename, new VirtualEditor([]));
+        this.addVirtualEditor(filename, new VirtualEditor([], undefined, this.verbose));
         this.currentEditorIndex = this.virtualEditors.length - 1;
       } else {
         this.currentEditorIndex = editorIndex;
@@ -228,6 +187,7 @@ export class VirtualIDE {
    */
   executeTerminalCommandSideEffects(): void {
     if (this.verbose) console.log("VirtualIDE: Executing terminal command side effects");
+    this.logs.push({ source: 'virtual-ide', type: 'info', message: `Executing terminal command side effects`, timestamp: Date.now() });
 
     // get the command that was just executed
     const terminal = this.virtualTerminals[this.currentTerminalIndex];
@@ -245,6 +205,7 @@ export class VirtualIDE {
     // check for supported commands - we can just log if in verbose mode
     if (!supportedCommands.includes(commandName)) {
       if (this.verbose) console.log(`VirtualIDE: Unsupported command: ${commandName} - supported commands are: ${supportedCommands.join(", ")}`);
+      this.logs.push({ source: 'virtual-ide', type: 'warning', message: `Unsupported command: ${commandName} - supported commands are: ${supportedCommands.join(", ")}`, timestamp: Date.now() });
       terminal.applyAction({ name: 'terminal-set-output', value: `${lastCommand}: command not found` });
       // just set a fresh prompt and return
       terminal.applyAction({ name: "terminal-set-output", value: prompt });
@@ -259,13 +220,14 @@ export class VirtualIDE {
       // getLsString considers the present working directory internally
       const lsString = this.virtualFileExplorer.getLsString();
       if (this.verbose) console.log(`VirtualIDE: ls output: ${lsString}`);
+      this.logs.push({ source: 'virtual-ide', type: 'info', message: `ls output: ${lsString}`, timestamp: Date.now() });
       if (lsString.length === 0) {
         // traditional ls outputs nothing if there are no files, just goes to the next fresh prompt
-        terminal.applyAction({ name: "terminal-set-output", value: prompt});
+        terminal.applyAction({ name: "terminal-set-output", value: prompt });
         return;
       } else {
         terminal.applyAction({ name: "terminal-set-output", value: lsString });
-        terminal.applyAction({ name: "terminal-set-output", value: prompt});
+        terminal.applyAction({ name: "terminal-set-output", value: prompt });
         return;
       }
     }
@@ -283,6 +245,7 @@ export class VirtualIDE {
     let pwd = this.virtualFileExplorer.getPresentWorkingDirectory() === "" ? "~" : this.virtualFileExplorer.getPresentWorkingDirectory();
 
     if (this.verbose) console.log(`VirtualIDE: Present working directory: ${pwd}`);
+    this.logs.push({ source: 'virtual-ide', type: 'info', message: `Present working directory: ${pwd}`, timestamp: Date.now() });
 
     // pwd
     if (parts.length === 1 && lastCommand === "pwd") {
@@ -297,10 +260,12 @@ export class VirtualIDE {
     // touch - make file and leave a fresh prompt
     if (parts.length == 2 && commandName === "touch") {
       if (this.verbose) console.log(`VirtualIDE: Creating file: ${parts[1]}`);
+      this.logs.push({ source: 'virtual-ide', type: 'info', message: `Creating file: ${parts[1]}`, timestamp: Date.now() });
       // use filesystem to create a file
       const newFile = parts[1]
       const fullFilePath = pwd + "/" + newFile;
       if (this.verbose) console.log(`VirtualIDE: Creating file: ${fullFilePath}`);
+      this.logs.push({ source: 'virtual-ide', type: 'info', message: `Creating file: ${fullFilePath}`, timestamp: Date.now() });
       this.virtualFileExplorer.applyAction({ name: "file-explorer-create-file", value: fullFilePath });
       terminal.applyAction({ name: "terminal-set-output", value: prompt });
       return;
@@ -309,6 +274,7 @@ export class VirtualIDE {
     // mkdir - make directory and leave a fresh prompt
     if (parts.length == 2 && commandName === "mkdir") {
       if (this.verbose) console.log(`VirtualIDE: Creating directory: ${parts[1]}`);
+      this.logs.push({ source: 'virtual-ide', type: 'info', message: `Creating directory: ${parts[1]}`, timestamp: Date.now() });
       // use filesystem to create a directory
       const newDir = parts[1]
       this.virtualFileExplorer.applyAction({ name: "file-explorer-create-folder", value: newDir });
@@ -319,6 +285,7 @@ export class VirtualIDE {
     // cd
     if (parts.length == 2 && commandName === "cd") {
       if (this.verbose) console.log(`VirtualIDE: Changing directory to: ${parts[1]}`);
+      this.logs.push({ source: 'virtual-ide', type: 'info', message: `Changing directory to: ${parts[1]}`, timestamp: Date.now() });
       const targetDir = parts[1];
       // no op if they try to .. already in "~"
       if (targetDir === ".." && pwd === "~") {
@@ -342,10 +309,12 @@ export class VirtualIDE {
         parts.pop();
         pwd = parts.join("/");
         if (this.verbose) console.log(`VirtualIDE: Changing directory to: ${pwd}`);
+        this.logs.push({ source: 'virtual-ide', type: 'info', message: `Changing directory to: ${pwd}`, timestamp: Date.now() });
       } else {
         // go to a specific directory
         pwd = pwd + "/" + targetDir;
         if (this.verbose) console.log(`VirtualIDE: Changing directory to: ${pwd}`);
+        this.logs.push({ source: 'virtual-ide', type: 'info', message: `Changing directory to: ${pwd}`, timestamp: Date.now() });
       }
 
       // update pwd in the file explorer
@@ -380,6 +349,7 @@ export class VirtualIDE {
       const file = parts[1]
       const absoluteFilePath = pwd + "/" + file;
       if (this.verbose) console.log(`VirtualIDE: Reading file: ${absoluteFilePath}`);
+      this.logs.push({ source: 'virtual-ide', type: 'info', message: `Reading file: ${absoluteFilePath}`, timestamp: Date.now() });
       const fileContents = this.virtualFileExplorer.getFileContents(absoluteFilePath);
       // cat only outputs the file content if it is not empty, otherwise no op
       if (fileContents !== "") {
@@ -399,7 +369,8 @@ export class VirtualIDE {
       const to = parts[2]
       const absoluteToPath = pwd + "/" + to;
       if (this.verbose) console.log(`VirtualIDE: Copying file from: ${absoluteFromPath} to: ${absoluteToPath}`);
-      this.virtualFileExplorer.applyAction({ name: "file-explorer-copy-file", value: `from:${absoluteFromPath};to:${absoluteToPath}`});
+      this.logs.push({ source: 'virtual-ide', type: 'info', message: `Copying file from: ${absoluteFromPath} to: ${absoluteToPath}`, timestamp: Date.now() });
+      this.virtualFileExplorer.applyAction({ name: "file-explorer-copy-file", value: `from:${absoluteFromPath};to:${absoluteToPath}` });
       terminal.applyAction({ name: "terminal-set-output", value: prompt });
       return;
     }
@@ -412,7 +383,8 @@ export class VirtualIDE {
       const to = parts[2]
       const absoluteToPath = pwd + "/" + to;
       if (this.verbose) console.log(`VirtualIDE: Moving file from: ${absoluteFromPath} to: ${absoluteToPath}`);
-      this.virtualFileExplorer.applyAction({ name: "file-explorer-move-file", value: `from:${absoluteFromPath};to:${absoluteToPath}`});
+      this.logs.push({ source: 'virtual-ide', type: 'info', message: `Moving file from: ${absoluteFromPath} to: ${absoluteToPath}`, timestamp: Date.now() });
+      this.virtualFileExplorer.applyAction({ name: "file-explorer-move-file", value: `from:${absoluteFromPath};to:${absoluteToPath}` });
       terminal.applyAction({ name: "terminal-set-output", value: prompt });
       return;
     }
@@ -434,6 +406,10 @@ export class VirtualIDE {
     });
   }
 
+  /**
+   * Gets the current cursor position.
+   * @returns The current cursor position.
+   */
   getCursorPosition(): { x: number; y: number } | null {
     if (this.currentCursorPosition.x === -1 || this.currentCursorPosition.y === -1) {
       return null;
@@ -441,16 +417,28 @@ export class VirtualIDE {
     return this.currentCursorPosition;
   }
 
+  /**
+   * Gets the open files in the virtual IDE.
+   * @returns The open files in the virtual IDE.
+   */
   getOpenFiles(): Array<string> {
     return this.virtualFileExplorer.getOpenFiles();
   }
 
+  /**
+   * Gets the file explorer snapshot.
+   * @returns The file explorer snapshot.
+   */
   getFileExplorerSnapshot(): IFileExplorerSnapshot {
     return {
       fileStructure: this.virtualFileExplorer.getCurrentFileStructure(),
     }
   }
 
+  /**
+   * Gets the editor snapshot.
+   * @returns The editor snapshot.
+   */
   getEditorSnapshot(): IEditorSnapshot {
     return {
       editors: this.virtualEditors.map((editor) => {
@@ -466,6 +454,9 @@ export class VirtualIDE {
     }
   }
 
+  /**
+   * Gets the terminal snapshot.
+   */
   getTerminalSnapshot(): ITerminalSnapshot {
     return {
       terminals: this.virtualTerminals.map((terminal) => {
@@ -476,6 +467,10 @@ export class VirtualIDE {
     }
   }
 
+
+  /**
+   * Gets the mouse snapshot.
+   */
   getMouseSnapshot(): IMouseSnapshot {
     return {
       x: 0,
@@ -494,6 +489,9 @@ export class VirtualIDE {
     }
   }
 
+  /**
+   * Gets the author snapshot.
+   */
   getAuthorSnapshot(): IAuthorSnapshot {
     return {
       authors: this.virtualAuthors.map((author) => {
@@ -505,7 +503,7 @@ export class VirtualIDE {
   }
 
   /**
-   * Gets the project snapshot. Should provide everything to completely recreate an IDE from scratch.
+   * Gets the project snapshot. Should provide everything to completely recreate an IDE visually, from scratch.
    */
   getCourseSnapshot(): ICourseSnapshot {
     return {
@@ -515,5 +513,64 @@ export class VirtualIDE {
       mouseSnapshot: this.getMouseSnapshot(),
       authorSnapshot: this.getAuthorSnapshot(),
     };
+  }
+
+  /**
+   * Sets the verbose flag for the virtual IDE and all its components.
+   * @param verbose 
+   */
+  setVerbose(verbose: boolean): void {
+    this.verbose = verbose;
+    this.virtualFileExplorer.setVerbose(verbose);
+    this.virtualEditors.forEach((editor) => {
+      editor.virtualEditor.setVerbose(verbose);
+    });
+    this.virtualTerminals.forEach((terminal) => {
+      terminal.setVerbose(verbose);
+    });
+    this.virtualAuthors.forEach((author) => {
+      author.setVerbose(verbose);
+    });
+  }
+
+  /**
+   * Gets the logs for the virtual IDE.
+   * @returns The logs for the virtual IDE.
+   */
+  getLogs(): Array<IVirtualLayerLog> {
+    return this.logs;
+  }
+
+  private reconstituteFromCourseAtActionIndex(course: ICourse, actionIndex?: number): void {
+    if (actionIndex === undefined) {
+      actionIndex = 0;
+    }
+
+    // generate giant array of all actions from all lessons
+    const allActions = [];
+    for (const lesson of course.lessons) {
+      allActions.push(...lesson.actions);
+    }
+
+    const actionsToApply = allActions.slice(0, actionIndex);
+    this.applyActions(actionsToApply);
+  }
+
+  private reconstituteFromLessonAtActionIndex(lesson: ILesson, actionIndex?: number): void {
+    if (actionIndex === undefined) {
+      actionIndex = 0;
+    }
+
+    const actionsToApply = lesson.actions.slice(0, actionIndex);
+    this.applyActions(actionsToApply);
+  }
+
+  private reconstituteFromActionsAtActionIndex(actions: IAction[], actionIndex?: number): void {
+    if (actionIndex === undefined) {
+      actionIndex = 0;
+    }
+
+    const actionsToApply = actions.slice(0, actionIndex);
+    this.applyActions(actionsToApply);
   }
 }
