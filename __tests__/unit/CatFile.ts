@@ -28,10 +28,11 @@ describe("VirtualIDE", () => {
                 name: "terminal-enter",
                 value: "1"
             });
-            // assert that cat on an unsaved file new file returns empty string
+            // assert that cat on an unsaved file new file returns empty string (no cat output, we jump right to clean prompt)
             const buffer = virtualIDE.virtualTerminals[0].getBuffer();
-            const catOutput = buffer[buffer.length - 2];
-            expect(catOutput).toBe("");
+            const prompt = virtualIDE.virtualTerminals[0].getPrompt();
+            const catOutput = buffer[buffer.length - 1];
+            expect(catOutput).toBe(prompt);
 
             // saving the file should persist the edits to the file explorer
             virtualIDE.applyAction({
@@ -54,7 +55,7 @@ describe("VirtualIDE", () => {
 
             // assert that cat on a saved file returns the contents
             const buffer2 = virtualIDE.virtualTerminals[0].getBuffer();
-            const catOutput2 = buffer2[buffer2.length - 2];
+            const catOutput2 = buffer2[buffer2.length - 2]; // back two because we have a clean prompt as the current line
             expect(catOutput2).toBe("# Hello, world!");
         });
     });

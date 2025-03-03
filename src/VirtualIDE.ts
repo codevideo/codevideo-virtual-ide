@@ -288,6 +288,7 @@ export class VirtualIDE {
     if (parts.length === 1 && lastCommand === "pwd") {
       // use filesystem to list the current path
       terminal.applyAction({ name: "terminal-set-output", value: pwd });
+      terminal.applyAction({ name: "terminal-set-output", value: prompt });
       return;
     }
 
@@ -380,7 +381,10 @@ export class VirtualIDE {
       const absoluteFilePath = pwd + "/" + file;
       if (this.verbose) console.log(`VirtualIDE: Reading file: ${absoluteFilePath}`);
       const fileContents = this.virtualFileExplorer.getFileContents(absoluteFilePath);
-      terminal.applyAction({ name: "terminal-set-output", value: fileContents });
+      // cat only outputs the file content if it is not empty, otherwise no op
+      if (fileContents !== "") {
+        terminal.applyAction({ name: "terminal-set-output", value: fileContents });
+      }
       terminal.applyAction({ name: "terminal-set-output", value: prompt });
       return
     }
@@ -396,6 +400,7 @@ export class VirtualIDE {
       const absoluteToPath = pwd + "/" + to;
       if (this.verbose) console.log(`VirtualIDE: Copying file from: ${absoluteFromPath} to: ${absoluteToPath}`);
       this.virtualFileExplorer.applyAction({ name: "file-explorer-copy-file", value: `from:${absoluteFromPath};to:${absoluteToPath}`});
+      terminal.applyAction({ name: "terminal-set-output", value: prompt });
       return;
     }
 
@@ -408,6 +413,7 @@ export class VirtualIDE {
       const absoluteToPath = pwd + "/" + to;
       if (this.verbose) console.log(`VirtualIDE: Moving file from: ${absoluteFromPath} to: ${absoluteToPath}`);
       this.virtualFileExplorer.applyAction({ name: "file-explorer-move-file", value: `from:${absoluteFromPath};to:${absoluteToPath}`});
+      terminal.applyAction({ name: "terminal-set-output", value: prompt });
       return;
     }
 
