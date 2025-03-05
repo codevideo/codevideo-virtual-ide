@@ -16,9 +16,10 @@ import {
   isLesson,
   ILesson,
   isValidActions,
-  IVirtualLayerLog
+  IVirtualLayerLog,
+  advancedCommandValueSeparator
 } from "@fullstackcraftllc/codevideo-types";
-import { VirtualFileExplorer, advancedCommandValueSeparator } from "@fullstackcraftllc/codevideo-virtual-file-explorer";
+import { VirtualFileExplorer } from "@fullstackcraftllc/codevideo-virtual-file-explorer";
 import { VirtualEditor } from "@fullstackcraftllc/codevideo-virtual-editor";
 import { VirtualTerminal } from "@fullstackcraftllc/codevideo-virtual-terminal";
 import { VirtualAuthor } from "@fullstackcraftllc/codevideo-virtual-author";
@@ -175,6 +176,7 @@ export class VirtualIDE {
       const editor = this.virtualEditors[this.currentEditorIndex];
       const filename = editor.fileName;
       const contents = editor.virtualEditor.getCode();
+      if (this.verbose) console.log(`VirtualIDE: Saving file: ${filename} with contents: ${contents}`);
       this.virtualFileExplorer.applyAction({ name: "file-explorer-set-file-contents", value: `${filename}${advancedCommandValueSeparator}${contents}` });
     }
   }
@@ -193,9 +195,12 @@ export class VirtualIDE {
     const terminal = this.virtualTerminals[this.currentTerminalIndex];
     const prompt = terminal.getPrompt();
     const commandHistory = terminal.getCommandHistory();
-    const lastCommand = commandHistory[commandHistory.length - 1];
+
+    // default to empty string if no command history
+    const lastCommand = commandHistory.length > 0 ? commandHistory[commandHistory.length - 1] : "";
 
     const parts = lastCommand.split(" ");
+
     // shouldn't happen but no op if it does
     if (parts.length === 0) {
       return;
@@ -370,7 +375,7 @@ export class VirtualIDE {
       const absoluteToPath = pwd + "/" + to;
       if (this.verbose) console.log(`VirtualIDE: Copying file from: ${absoluteFromPath} to: ${absoluteToPath}`);
       this.logs.push({ source: 'virtual-ide', type: 'info', message: `Copying file from: ${absoluteFromPath} to: ${absoluteToPath}`, timestamp: Date.now() });
-      this.virtualFileExplorer.applyAction({ name: "file-explorer-copy-file", value: `from:${absoluteFromPath};to:${absoluteToPath}` });
+      this.virtualFileExplorer.applyAction({ name: "file-explorer-copy-file", value: `${absoluteFromPath}${advancedCommandValueSeparator}${absoluteToPath}` });
       terminal.applyAction({ name: "terminal-set-output", value: prompt });
       return;
     }
@@ -384,13 +389,16 @@ export class VirtualIDE {
       const absoluteToPath = pwd + "/" + to;
       if (this.verbose) console.log(`VirtualIDE: Moving file from: ${absoluteFromPath} to: ${absoluteToPath}`);
       this.logs.push({ source: 'virtual-ide', type: 'info', message: `Moving file from: ${absoluteFromPath} to: ${absoluteToPath}`, timestamp: Date.now() });
-      this.virtualFileExplorer.applyAction({ name: "file-explorer-move-file", value: `from:${absoluteFromPath};to:${absoluteToPath}` });
+      this.virtualFileExplorer.applyAction({ name: "file-explorer-move-file", value: `${absoluteFromPath}${advancedCommandValueSeparator}${absoluteToPath}` });
       terminal.applyAction({ name: "terminal-set-output", value: prompt });
       return;
     }
 
     // if we get here, we don't know the command
-    terminal.applyAction({ name: 'terminal-set-output', value: `${lastCommand}: command not found` });
+    // TODO: could be configurable in GUI "Terminal should show unknown commands?" or not. for not just log if verbose
+    if (this.verbose) console.log(`VirtualIDE: Unknown command: ${commandName}`);
+    this.logs.push({ source: 'virtual-ide', type: 'warning', message: `Unknown command: ${commandName}`, timestamp: Date.now() });
+    // terminal.applyAction({ name: 'terminal-set-output', value: `${lastCommand}: command not found` });
     // set a fresh prompt
     terminal.applyAction({ name: "terminal-set-output", value: prompt });
   }
