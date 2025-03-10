@@ -171,13 +171,23 @@ export class VirtualIDE {
       this.executeTerminalCommandSideEffects();
     }
 
-    // another super special effect - on editor-save we persist the contents to the file explorer
+    // another super special side effect - on editor-save we persist the contents to the file explorer
     if (action.name === "editor-save") {
       const editor = this.virtualEditors[this.currentEditorIndex];
       const filename = editor.fileName;
       const contents = editor.virtualEditor.getCode();
       if (this.verbose) console.log(`VirtualIDE: Saving file: ${filename} with contents: ${contents}`);
       this.virtualFileExplorer.applyAction({ name: "file-explorer-set-file-contents", value: `${filename}${advancedCommandValueSeparator}${contents}` });
+    }
+
+    // and yet another super special side effect - on file-explorer-close-file we need to close the editor
+    if (action.name === "file-explorer-close-file") {
+      const filename = action.value;
+      const editorIndex = this.virtualEditors.findIndex((editor) => editor.fileName === filename);
+      if (editorIndex !== -1) {
+        this.virtualEditors.splice(editorIndex, 1);
+        this.currentEditorIndex = 0;
+      }
     }
   }
 
@@ -211,7 +221,8 @@ export class VirtualIDE {
     if (!supportedCommands.includes(commandName)) {
       if (this.verbose) console.log(`VirtualIDE: Unsupported command: ${commandName} - supported commands are: ${supportedCommands.join(", ")}`);
       this.logs.push({ source: 'virtual-ide', type: 'warning', message: `Unsupported command: ${commandName} - supported commands are: ${supportedCommands.join(", ")}`, timestamp: Date.now() });
-      terminal.applyAction({ name: 'terminal-set-output', value: `${lastCommand}: command not found` });
+      // TODO: activate later with something like "terminal shows unknown commands?" in GUI - for now users can manually set output
+      // terminal.applyAction({ name: 'terminal-set-output', value: `${lastCommand}: command not found` });
       // just set a fresh prompt and return
       terminal.applyAction({ name: "terminal-set-output", value: prompt });
       return

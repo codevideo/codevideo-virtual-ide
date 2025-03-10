@@ -169,9 +169,17 @@ describe("VirtualIDE", () => {
             const virtualTerminal = virtualIDE.virtualTerminals[0];
             virtualIDE.applyAction({ name: "terminal-type", value: "not-a-command" });
             virtualIDE.applyAction({ name: "terminal-enter", value: "1" });
+
+            // TODO: when unknown commands active:
+            // expect(virtualTerminal.getBuffer()).toEqual([
+            //     "[codevideo.studio] [~] /> not-a-command",
+            //     "not-a-command: command not found",
+            //     "[codevideo.studio] [~] /> ",
+            // ]);
+
+            // currently, we no op on unknown commands:
             expect(virtualTerminal.getBuffer()).toEqual([
                 "[codevideo.studio] [~] /> not-a-command",
-                "not-a-command: command not found",
                 "[codevideo.studio] [~] /> ",
             ]);
         });
