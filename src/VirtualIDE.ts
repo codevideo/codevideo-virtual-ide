@@ -78,7 +78,8 @@ export class VirtualIDE {
 
   /**
    * Adds a virtual editor to the virtual IDE.
-   * @param codeBlock The virtual code block to add.
+   * @param fileName The name of the file.
+   * @param virtualEditor The virtual editor to add.
    */
   addVirtualEditor(fileName: string, virtualEditor: VirtualEditor): void {
     this.virtualEditors.push({ fileName, virtualEditor });
@@ -194,8 +195,7 @@ export class VirtualIDE {
   /**
    * Executes IDE side effects for a terminal command.
    * The terminal itself doesn't have knowledge of the filesystem, so we need to handle that here.
-   * (In the real world it does but in codevideo we rely on the virtual file explorer to handle all filesystem operations.)
-   * @param command The command to execute.
+   * (In the real world it does but in CodeVideo world we rely on the virtual file explorer to handle all filesystem operations.)
    */
   executeTerminalCommandSideEffects(): void {
     if (this.verbose) console.log("VirtualIDE: Executing terminal command side effects");
