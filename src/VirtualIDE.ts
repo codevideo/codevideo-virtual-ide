@@ -17,14 +17,17 @@ import {
   ILesson,
   isValidActions,
   IVirtualLayerLog,
-  advancedCommandValueSeparator
+  advancedCommandValueSeparator,
+  MouseLocation,
+  isMouseAction
 } from "@fullstackcraftllc/codevideo-types";
 import { VirtualFileExplorer } from "@fullstackcraftllc/codevideo-virtual-file-explorer";
+import { VirtualMouse } from "@fullstackcraftllc/codevideo-virtual-mouse";
 import { VirtualEditor } from "@fullstackcraftllc/codevideo-virtual-editor";
 import { VirtualTerminal } from "@fullstackcraftllc/codevideo-virtual-terminal";
 import { VirtualAuthor } from "@fullstackcraftllc/codevideo-virtual-author";
 
-export const supportedCommands = ["cat", "cd", "cp", "echo", "ls", "mkdir", "mv", "pwd", "touch", "tree"];
+export const supportedTerminalCommands = ["cat", "cd", "cp", "echo", "ls", "mkdir", "mv", "pwd", "touch", "tree"];
 
 /**
  * Represents a virtual IDE that can be manipulated by a series of actions.
@@ -36,6 +39,7 @@ export const supportedCommands = ["cat", "cd", "cp", "echo", "ls", "mkdir", "mv"
  */
 export class VirtualIDE {
   public virtualFileExplorer: VirtualFileExplorer;
+  public virtualMouse: VirtualMouse;
   public virtualEditors: Array<{ fileName: string, virtualEditor: VirtualEditor }> = [];
   public virtualTerminals: Array<VirtualTerminal> = [];
   private currentEditorIndex: number = 0;
@@ -57,6 +61,7 @@ export class VirtualIDE {
 
     // always initialize to completely empty state
     this.virtualFileExplorer = new VirtualFileExplorer(undefined, this.verbose);
+    this.virtualMouse = new VirtualMouse();
     this.virtualEditors = [];
     this.virtualTerminals = [];
     this.virtualAuthors = [];
@@ -137,25 +142,19 @@ export class VirtualIDE {
         this.currentAuthorIndex = 0;
       }
       this.virtualAuthors[this.currentAuthorIndex].applyAction(action);
-    } else {
+    } else if (isMouseAction(action)) {
+      // forward the mouse action to the virtual mouse
+      if (this.verbose) console.log("VirtualIDE: Applying MOUSE action", action);
+      this.logs.push({ source: 'virtual-ide', type: 'info', message: `Applying MOUSE action: ${action.name}`, timestamp: Date.now() });
+      this.virtualMouse.applyAction(action);
+    }
+    else {
       if (this.verbose) console.warn("VirtualIDE: Unknown action:", action);
       this.logs.push({ source: 'virtual-ide', type: 'warning', message: `Unknown action: ${action.name}`, timestamp: Date.now() });
     }
 
     // file-explorer-open-file is technically a FileExplorerAction, but we need to handle it here as a cross domain to editor
     if (action.name === "file-explorer-open-file") {
-      const filename = action.value;
-      const editorIndex = this.virtualEditors.findIndex((editor) => editor.fileName === filename);
-      if (editorIndex === -1) {
-        this.addVirtualEditor(filename, new VirtualEditor([], undefined, this.verbose));
-        this.currentEditorIndex = this.virtualEditors.length - 1;
-      } else {
-        this.currentEditorIndex = editorIndex;
-      }
-    }
-
-    // likewise, mouse-click-filename is technically a MouseAction, but we need to handle it here as a cross domain to editor
-    if (action.name === "mouse-click-filename") {
       const filename = action.value;
       const editorIndex = this.virtualEditors.findIndex((editor) => editor.fileName === filename);
       if (editorIndex === -1) {
@@ -174,10 +173,12 @@ export class VirtualIDE {
 
     // another super special side effect - on editor-save we persist the contents to the file explorer
     if (action.name === "editor-save") {
+      console.log("EXECUTE EDITOR SAVE SIDE EFFECTS: this.currentEditorIndex", this.currentEditorIndex)
+      console.log("EXECUTE EDITOR SAVE SIDE EFFECTS: this.virtualEditors.length", this.virtualEditors.length)
       const editor = this.virtualEditors[this.currentEditorIndex];
       const filename = editor.fileName;
       const contents = editor.virtualEditor.getCode();
-      if (this.verbose) console.log(`VirtualIDE: Saving file: ${filename} with contents: ${contents}`);
+      if (this.verbose) console.log(`VirtualIDE: Saving file: <${filename}> with contents: <${contents}>`);
       this.virtualFileExplorer.applyAction({ name: "file-explorer-set-file-contents", value: `${filename}${advancedCommandValueSeparator}${contents}` });
     }
 
@@ -188,6 +189,154 @@ export class VirtualIDE {
       if (editorIndex !== -1) {
         this.virtualEditors.splice(editorIndex, 1);
         this.currentEditorIndex = 0;
+      }
+    }
+
+    const currentMouseSnapshot = this.virtualMouse.getCurrentMouseSnapshot()
+    const currentMouseLocation = currentMouseSnapshot.location
+    const currentHoveredFileName = currentMouseSnapshot.currentHoveredFileName
+    const currentHoveredFolderName = currentMouseSnapshot.currentHoveredFolderName
+
+    // another super special side effect - on any mouse right click we open the context menu based on location
+    if (action.name === 'mouse-right-click') {
+      this.executeMouseRightClickSideEffects(currentMouseLocation);
+    }
+
+    // another super special side effect - on any mouse left click we close the context menus everywhere
+    // and also need to apply any cross domain effects that a mouse click might do (like with the context menus!)
+    if (action.name === 'mouse-left-click') {
+      this.executeMouseLeftClickSideEffects(currentMouseLocation, currentHoveredFileName, currentHoveredFolderName)
+    }
+
+    if (action.name === 'file-explorer-enter-new-file-input') {
+      // get the current file name from the file explorer
+      const fileName = this.virtualFileExplorer.getCurrentFileExplorerSnapshot().newFileInputValue
+      // check if the file already exists
+      const fileExists = this.virtualFileExplorer.getFiles().includes(fileName);
+      if (fileExists) {
+        // if it does, log message if verbose
+        if (this.verbose) console.warn(`VirtualIDE: File already exists: ${fileName}`);
+        this.logs.push({ source: 'virtual-ide', type: 'warning', message: `File already exists: ${fileName}`, timestamp: Date.now() });
+      } else {
+        // if it doesn't, create the file, hide the input, clear the input, and open the file
+        console.log("FILE IS ", fileName)
+        this.virtualFileExplorer.applyAction({ name: 'file-explorer-create-file', value: fileName })
+        this.virtualFileExplorer.applyAction({ name: 'file-explorer-hide-new-file-input', value: "1" })
+        this.virtualFileExplorer.applyAction({ name: 'file-explorer-clear-new-file-input', value: "1" })
+
+        // instead of file-explorer-open-file (which has side effects here, just repeat code as above)
+        // (should be refactored eventually)
+        this.virtualFileExplorer.applyAction({ name: 'file-explorer-open-file', value: fileName })
+        const editorIndex = this.virtualEditors.findIndex((editor) => editor.fileName === fileName);
+        if (editorIndex === -1) {
+          // editor was not found, so we need to create it and set the current editor index
+          this.addVirtualEditor(fileName, new VirtualEditor([], undefined, this.verbose));
+          this.currentEditorIndex = this.virtualEditors.length - 1;
+        } else {
+          // editor already in an editor tab, so we just need to set the current editor index
+          this.currentEditorIndex = editorIndex;
+        }
+      }
+    }
+
+    if (action.name === 'file-explorer-enter-new-folder-input') {
+      // get the current file name from the file explorer
+      const folderName = this.virtualFileExplorer.getCurrentFileExplorerSnapshot().newFolderInputValue
+      // check if the folder already exists
+      const folderExists = this.virtualFileExplorer.getFiles().includes(folderName);
+      if (folderExists) {
+        // if it does, log message if verbose
+        if (this.verbose) console.warn(`VirtualIDE: File already exists: ${folderName}`);
+        this.logs.push({ source: 'virtual-ide', type: 'warning', message: `File already exists: ${folderName}`, timestamp: Date.now() });
+      } else {
+        // if it doesn't, create the folder
+        this.virtualFileExplorer.applyAction({ name: 'file-explorer-create-folder', value: folderName })
+        this.virtualFileExplorer.applyAction({ name: 'file-explorer-hide-new-folder-input', value: "1" })
+        this.virtualFileExplorer.applyAction({ name: 'file-explorer-clear-new-folder-input', value: "1" })
+      }
+    }
+  }
+
+  executeMouseRightClickSideEffects(currentMouseLocation: MouseLocation): void {
+    switch (currentMouseLocation) {
+      case 'file-explorer':
+        this.virtualFileExplorer.applyAction({ name: 'file-explorer-show-context-menu', value: "1" })
+        break;
+      case 'file-explorer-file':
+        this.virtualFileExplorer.applyAction({ name: 'file-explorer-show-file-context-menu', value: "1" })
+        break;
+      case 'file-explorer-folder':
+        this.virtualFileExplorer.applyAction({ name: 'file-explorer-show-folder-context-menu', value: "1" })
+        break;
+      case 'editor':
+        this.virtualEditors[this.currentEditorIndex].virtualEditor.applyAction({ name: 'editor-show-context-menu', value: "1" })
+        break;
+      // TODO: more later, for now we just support the above context menus
+    }
+  }
+
+  executeMouseLeftClickSideEffects(currentMouseLocation: MouseLocation, currentHoveredFileName: string, currentHoveredFolderName: string): void {
+    
+    // hide all context menus
+    this.virtualFileExplorer.applyAction({ name: 'file-explorer-hide-context-menu', value: "1" })
+    this.virtualFileExplorer.applyAction({ name: 'file-explorer-hide-file-context-menu', value: "1" })
+    this.virtualFileExplorer.applyAction({ name: 'file-explorer-hide-folder-context-menu', value: "1" })
+    const currentEditor = this.getActiveEditorSafely()
+    if (currentEditor) {
+      currentEditor.applyAction({ name: 'editor-hide-context-menu', value: "1" })
+    }
+
+    // file explorer context menu (opened when right clicking anywhere not on a file or folder in the file explorer)
+    if (currentMouseLocation === "file-explorer-context-menu-new-file") {
+      // ... then toggle activation of file-explorer-input
+      this.virtualFileExplorer.applyAction({ name: 'file-explorer-show-new-file-input', value: "1" })
+    }
+    if (currentMouseLocation === "file-explorer-context-menu-new-folder") {
+      // ... then toggle activation of file-explorer-input
+      this.virtualFileExplorer.applyAction({ name: 'file-explorer-show-new-folder-input', value: "1" })
+    }
+
+    // file context menu (opened when right clicking on a file)
+    if (currentMouseLocation === "file-explorer-file-context-menu-rename") {
+      // ... then toggle activation of file-explorer-input
+      this.virtualFileExplorer.applyAction({ name: 'file-explorer-rename-file-draft-state', value: currentHoveredFileName })
+    }
+    if (currentMouseLocation === "file-explorer-file-context-menu-delete") {
+      // ... then toggle activation of file-explorer-input
+      this.virtualFileExplorer.applyAction({ name: 'file-explorer-delete-file', value: currentHoveredFileName })
+    }
+
+    // folder context menu (opened when  right clicking on a file)
+    if (currentMouseLocation === "file-explorer-folder-context-menu-new-file") {
+      // ... then toggle activation of file-explorer-show-new-file-input
+      this.virtualFileExplorer.applyAction({ name: 'file-explorer-show-new-file-input', value: "1" })
+    }
+    if (currentMouseLocation === "file-explorer-folder-context-menu-new-folder") {
+      // ... then toggle activation of file-explorer-show-new-folder-input
+      this.virtualFileExplorer.applyAction({ name: 'file-explorer-show-new-folder-input', value: "1" })
+    }
+    if (currentMouseLocation === "file-explorer-folder-context-menu-rename") {
+      // ... then set file-explorer-rename-folder-draft-state
+      this.virtualFileExplorer.applyAction({ name: 'file-explorer-rename-folder-draft-state', value: currentHoveredFolderName })
+    }
+    if (currentMouseLocation === "file-explorer-folder-context-menu-delete") {
+      // ... then delete the folder
+      this.virtualFileExplorer.applyAction({ name: 'file-explorer-delete-folder', value: currentHoveredFolderName })
+    }
+
+    // side effect for clicking file in file explorer case - we need to open that file in the editor!
+    if (currentMouseLocation === 'file-explorer-file') {
+      console.log("EXECUTE MOUSE LEFT CLICK SIDE EFFECTS, currentHoveredFileName", currentHoveredFileName)
+      const filename = currentHoveredFileName;
+      const editorIndex = this.virtualEditors.findIndex((editor) => editor.fileName === filename);
+      if (editorIndex === -1) {
+        // editor was not found in editor tabs, so we need to create it and set the current editor index
+        this.addVirtualEditor(filename, new VirtualEditor([], undefined, this.verbose));
+        const newEditorIndex = this.virtualEditors.findIndex((editor) => editor.fileName === filename);
+        this.currentEditorIndex = newEditorIndex === -1 ?  this.virtualEditors.length - 1 : newEditorIndex;
+      } else {
+      // else just set the current editor index to that index
+        this.currentEditorIndex = editorIndex;
       }
     }
   }
@@ -218,9 +367,9 @@ export class VirtualIDE {
     const commandName = parts[0];
 
     // check for supported commands - we can just log if in verbose mode
-    if (!supportedCommands.includes(commandName)) {
-      if (this.verbose) console.log(`VirtualIDE: Unsupported command: ${commandName} - supported commands are: ${supportedCommands.join(", ")}`);
-      this.logs.push({ source: 'virtual-ide', type: 'warning', message: `Unsupported command: ${commandName} - supported commands are: ${supportedCommands.join(", ")}`, timestamp: Date.now() });
+    if (!supportedTerminalCommands.includes(commandName)) {
+      if (this.verbose) console.log(`VirtualIDE: Unsupported command: ${commandName} - supported commands are: ${supportedTerminalCommands.join(", ")}`);
+      this.logs.push({ source: 'virtual-ide', type: 'warning', message: `Unsupported command: ${commandName} - supported commands are: ${supportedTerminalCommands.join(", ")}`, timestamp: Date.now() });
       // TODO: activate later with something like "terminal shows unknown commands?" in GUI - for now users can manually set output
       // terminal.applyAction({ name: 'terminal-set-output', value: `${lastCommand}: command not found` });
       // just set a fresh prompt and return
@@ -449,9 +598,14 @@ export class VirtualIDE {
    * @returns The file explorer snapshot.
    */
   getFileExplorerSnapshot(): IFileExplorerSnapshot {
-    return {
-      fileStructure: this.virtualFileExplorer.getCurrentFileStructure(),
-    }
+    return this.virtualFileExplorer.getCurrentFileExplorerSnapshot()
+  }
+
+  /**
+   * Gets the mouse snapshot.
+   */
+  getMouseSnapshot(): IMouseSnapshot {
+    return this.virtualMouse.getCurrentMouseSnapshot()
   }
 
   /**
@@ -459,6 +613,7 @@ export class VirtualIDE {
    * @returns The editor snapshot.
    */
   getEditorSnapshot(): IEditorSnapshot {
+    const activeEditor = this.getActiveEditorSafely()
     return {
       editors: this.virtualEditors.map((editor) => {
         return {
@@ -469,7 +624,8 @@ export class VirtualIDE {
           highlightCoordinates: editor.virtualEditor.getCurrentHighlightCoordinates(),
           isSaved: editor.virtualEditor.getIsSaved(),
         }
-      })
+      }),
+      isEditorContextMenuOpen: activeEditor ? activeEditor.getIsEditorContextMenuOpen() : false
     }
   }
 
@@ -483,28 +639,6 @@ export class VirtualIDE {
           content: terminal.getCurrentCommand()
         }
       }),
-    }
-  }
-
-
-  /**
-   * Gets the mouse snapshot.
-   */
-  getMouseSnapshot(): IMouseSnapshot {
-    return {
-      x: 0,
-      y: 0,
-      timestamp: 0,
-      type: 'move',
-      buttonStates: {
-        left: false,
-        right: false,
-        middle: false,
-      },
-      scrollPosition: {
-        x: 0,
-        y: 0,
-      },
     }
   }
 
@@ -558,6 +692,16 @@ export class VirtualIDE {
    */
   getLogs(): Array<IVirtualLayerLog> {
     return this.logs;
+  }
+
+  private getActiveEditorSafely(): VirtualEditor | undefined {
+    if (this.virtualEditors.length === 0) {
+      return undefined;
+    }
+    if (this.currentEditorIndex >= this.virtualEditors.length) {
+      return undefined;
+    }
+    return this.virtualEditors[this.currentEditorIndex].virtualEditor;
   }
 
   private reconstituteFromCourseAtActionIndex(course: ICourse, actionIndex?: number): void {

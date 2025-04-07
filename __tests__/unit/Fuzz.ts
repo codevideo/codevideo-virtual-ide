@@ -5,7 +5,7 @@ describe("VirtualIDE", () => {
     describe("fuzz test", () => {
         it("should not crash when trying to apply a dummy value for name of AllActions", () => {
             // arrange
-            const virtualIDE = new VirtualIDE(undefined, undefined, true);
+            const virtualIDE = new VirtualIDE(undefined, undefined);
 
             // act
             for (let i = 0; i < AllActionStrings.length; i++) {

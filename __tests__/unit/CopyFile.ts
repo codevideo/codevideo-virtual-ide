@@ -3,7 +3,7 @@ import { VirtualIDE } from "../../src/VirtualIDE";
 describe("VirtualIDE", () => {
     describe("copy files", () => {
         it("should be able to copy a file to another", () => {
-            const virtualIDE = new VirtualIDE(undefined, undefined, true);
+            const virtualIDE = new VirtualIDE(undefined, undefined);
             virtualIDE.applyAction({
                 name: "file-explorer-create-file",
                 value: "test.md"

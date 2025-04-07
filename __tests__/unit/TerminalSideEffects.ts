@@ -3,7 +3,7 @@ import { VirtualIDE } from "../../src/VirtualIDE";
 describe("VirtualIDE", () => {
     describe("cross domain interactions with file explorer", () => {
         it("should have a correct buffer state at initialization and after various actions", () => {
-            const virtualIDE = new VirtualIDE(undefined, undefined, false);
+            const virtualIDE = new VirtualIDE(undefined, undefined);
             virtualIDE.applyAction({ name: "terminal-open", value: "1" });
             const virtualTerminal = virtualIDE.virtualTerminals[0];
             expect(virtualTerminal.getBuffer()).toEqual([

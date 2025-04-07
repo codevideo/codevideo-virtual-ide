@@ -7,7 +7,7 @@ import { VirtualTerminal } from "@fullstackcraftllc/codevideo-virtual-terminal";
 describe("VirtualIDE", () => {
   describe("complex tutorial scenario", () => {
     it("should maintain correct state throughout a complete tutorial", () => {
-      const virtualIDE = new VirtualIDE();
+      const virtualIDE = new VirtualIDE(undefined, undefined, false);
       virtualIDE.addVirtualTerminal(new VirtualTerminal());
       virtualIDE.addVirtualAuthor(new VirtualAuthor());
       const tutorialActions: IAction[] = [
@@ -29,8 +29,28 @@ describe("VirtualIDE", () => {
           value: "and now let's create a hello-world.js file inside it."
         },
         {
-          name: "file-explorer-create-file",
+          name: "mouse-move-file-explorer",
+          value: "1"
+        },
+        {
+          name: "mouse-right-click",
+          value: "1"
+        },
+        {
+          name: "mouse-move-file-explorer-context-menu-new-file",
+          value: "1"
+        },
+        {
+          name: "mouse-left-click",
+          value: "1"
+        },
+        {
+          name: "file-explorer-type-new-file-input",
           value: "src/hello-world.js"
+        },
+        {
+          name: "file-explorer-enter-new-file-input",
+          value: "1"
         },
 
         // Opening and editing the first file
@@ -39,11 +59,15 @@ describe("VirtualIDE", () => {
           value: "Let's open up hello-world.js now..."
         },
         {
-          name: "file-explorer-open-file", // how to constitute with 'click-filename'?
+          name: "file-explorer-open-file",
           value: "src/hello-world.js"
         },
         {
-          name: "mouse-click-editor",
+          name: "mouse-move-editor",
+          value: "1"
+        },
+        {
+          name: "mouse-left-click",
           value: "1"
         },
         {
@@ -65,7 +89,11 @@ describe("VirtualIDE", () => {
           value: "1"
         },
         {
-          name: "mouse-click-terminal",
+          name: "mouse-move-terminal",
+          value: "1"
+        },
+        {
+          name: "mouse-left-click",
           value: "1"
         },
         {
@@ -95,7 +123,11 @@ describe("VirtualIDE", () => {
           value: "src/utils/logger.js"
         },
         {
-          name: "mouse-click-editor",
+          name: "mouse-move-editor",
+          value: "1"
+        },
+        {
+          name: "mouse-left-click",
           value: "1"
         },
         {
@@ -109,11 +141,19 @@ describe("VirtualIDE", () => {
 
         // Updating main file
         {
-          name: "mouse-click-filename",
+          name: "mouse-move-file-explorer-file",
           value: "src/hello-world.js"
         },
         {
-          name: "mouse-click-editor",
+          name: "mouse-left-click",
+          value: "1"
+        },
+        {
+          name: "mouse-move-editor",
+          value: "1"
+        },
+        {
+          name: "mouse-left-click",
           value: "1"
         },
         {
@@ -131,7 +171,11 @@ describe("VirtualIDE", () => {
 
         // Final run
         {
-          name: "mouse-click-terminal",
+          name: "mouse-move-terminal",
+          value: "1"
+        },
+        {
+          name: "mouse-left-click",
           value: "1"
         },
         {
@@ -208,11 +252,16 @@ describe("VirtualIDE", () => {
         y: 0,
         timestamp: 0,
         type: 'move',
+        button: 0,
         buttonStates: {
           left: false,
           right: false,
           middle: false,
         },
+        currentHoveredFileName: "",
+        currentHoveredFolderName: "",
+        location: "terminal",
+        scrollDelta: 0,
         scrollPosition: {
           x: 0,
           y: 0,

@@ -1,1 +1,1 @@
-export { VirtualIDE, supportedCommands } from './VirtualIDE';
+export { VirtualIDE, supportedTerminalCommands as supportedCommands } from './VirtualIDE';

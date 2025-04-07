@@ -35,7 +35,7 @@ function generateMockActions(count) {
 
 // Test different action counts
 describe('VirtualIDE Performance Tests', () => {
-    const actionCounts = [1000, 5000];
+    const actionCounts = [1000, 5000, 10000];
 
     // Helper function to measure and log memory usage
     function measureMemoryUsage(virtualIDE: VirtualIDE, numActions: number) {
