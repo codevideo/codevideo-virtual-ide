@@ -19,7 +19,8 @@ import {
   IVirtualLayerLog,
   advancedCommandValueSeparator,
   MouseLocation,
-  isMouseAction
+  isMouseAction,
+  getRootFileName,
 } from "@fullstackcraftllc/codevideo-types";
 import { VirtualFileExplorer } from "@fullstackcraftllc/codevideo-virtual-file-explorer";
 import { VirtualMouse } from "@fullstackcraftllc/codevideo-virtual-mouse";
@@ -38,14 +39,32 @@ export const supportedTerminalCommands = ["cat", "cd", "cp", "echo", "ls", "mkdi
  * 4. One or more virtual authors that represent the author, responsible for speaking actions.
  */
 export class VirtualIDE {
+  /**
+   * The virtual file explorer that represents the file system.
+   */
   public virtualFileExplorer: VirtualFileExplorer;
+
+  /**
+   * The virtual mouse that represents the mouse cursor.
+  */
   public virtualMouse: VirtualMouse;
+
+  /**
+   * The virtual editors that represent the editing area. Filenames are absolute and also represent the open tabs of the IDE.
+   */
   public virtualEditors: Array<{ fileName: string, virtualEditor: VirtualEditor }> = [];
+  
+  /**
+   * The virtual terminals that represent the terminals. Since they have no file name, we just reference them by index.
+   */
   public virtualTerminals: Array<VirtualTerminal> = [];
-  private currentEditorIndex: number = 0;
-  private currentTerminalIndex: number = 0;
-  private currentAuthorIndex: number = 0;
+
+  private currentEditorIndex: number = -1;
+  private currentTerminalIndex: number = -1;
+  private currentAuthorIndex: number = -1;
   private currentCursorPosition: { x: number; y: number } = { x: -1, y: -1 }; // x is column, y is row - we allow both to be negative because a user may not want to have a cursor shown or used
+  private isUnsavedChangesDialogOpen: boolean = false;
+  private unsavedFileName: string = "";
   private verbose: boolean = false;
   private logs: Array<IVirtualLayerLog> = [];
 
@@ -96,6 +115,7 @@ export class VirtualIDE {
    */
   addVirtualTerminal(terminal: VirtualTerminal): void {
     this.virtualTerminals.push(terminal);
+    this.currentTerminalIndex = this.virtualTerminals.length - 1;
   }
 
   /**
@@ -104,6 +124,7 @@ export class VirtualIDE {
    */
   addVirtualAuthor(author: VirtualAuthor): void {
     this.virtualAuthors.push(author);
+    this.currentAuthorIndex = this.virtualAuthors.length - 1;
   }
 
   /**
@@ -119,6 +140,7 @@ export class VirtualIDE {
       if (this.verbose) console.log("VirtualIDE: Applying EDITOR action", action);
       this.logs.push({ source: 'virtual-ide', type: 'info', message: `Applying EDITOR action: ${action.name}`, timestamp: Date.now() });
       // if we don't have an editor yet, create one
+      // make schnittstelle great again - it's not our responsibility to create side effects for the benefit of the user
       if (this.virtualEditors.length === 0) {
         this.addVirtualEditor(action.value, new VirtualEditor([], undefined, this.verbose));
         this.currentEditorIndex = 0;
@@ -128,6 +150,7 @@ export class VirtualIDE {
       if (this.verbose) console.log("VirtualIDE: Applying TERMINAL action", action);
       this.logs.push({ source: 'virtual-ide', type: 'info', message: `Applying TERMINAL action: ${action.name}`, timestamp: Date.now() });
       // if we don't have a terminal yet, create one
+      // make schnittstelle great again - it's not our responsibility to create side effects for the benefit of the user
       if (this.virtualTerminals.length === 0) {
         this.addVirtualTerminal(new VirtualTerminal(undefined, undefined, this.verbose));
         this.currentTerminalIndex = 0;
@@ -196,16 +219,17 @@ export class VirtualIDE {
     const currentMouseLocation = currentMouseSnapshot.location
     const currentHoveredFileName = currentMouseSnapshot.currentHoveredFileName
     const currentHoveredFolderName = currentMouseSnapshot.currentHoveredFolderName
+    const currentHoveredEditorTabFileName = currentMouseSnapshot.currentHoveredEditorTabFileName
 
     // another super special side effect - on any mouse right click we open the context menu based on location
     if (action.name === 'mouse-right-click') {
-      this.executeMouseRightClickSideEffects(currentMouseLocation);
+      this.executeMouseRightClickSideEffects(currentMouseLocation, currentHoveredFileName, currentHoveredFolderName);
     }
 
     // another super special side effect - on any mouse left click we close the context menus everywhere
     // and also need to apply any cross domain effects that a mouse click might do (like with the context menus!)
     if (action.name === 'mouse-left-click') {
-      this.executeMouseLeftClickSideEffects(currentMouseLocation, currentHoveredFileName, currentHoveredFolderName)
+      this.executeMouseLeftClickSideEffects(currentMouseLocation, currentHoveredFileName, currentHoveredFolderName, currentHoveredEditorTabFileName)
     }
 
     if (action.name === 'file-explorer-enter-new-file-input') {
@@ -236,6 +260,9 @@ export class VirtualIDE {
           // editor already in an editor tab, so we just need to set the current editor index
           this.currentEditorIndex = editorIndex;
         }
+        // in IDEs like visual studio code, the file is already in a saved state even though it is opened,
+        // so we set the saved state to true
+        this.virtualEditors[this.currentEditorIndex].virtualEditor.applyAction({ name: 'editor-save', value: "1" });
       }
     }
 
@@ -257,16 +284,16 @@ export class VirtualIDE {
     }
   }
 
-  executeMouseRightClickSideEffects(currentMouseLocation: MouseLocation): void {
+  executeMouseRightClickSideEffects(currentMouseLocation: MouseLocation, currentHoveredFileName: string, currentHoveredFolderName: string): void {
     switch (currentMouseLocation) {
       case 'file-explorer':
         this.virtualFileExplorer.applyAction({ name: 'file-explorer-show-context-menu', value: "1" })
         break;
       case 'file-explorer-file':
-        this.virtualFileExplorer.applyAction({ name: 'file-explorer-show-file-context-menu', value: "1" })
+        this.virtualFileExplorer.applyAction({ name: 'file-explorer-show-file-context-menu', value: currentHoveredFileName })
         break;
       case 'file-explorer-folder':
-        this.virtualFileExplorer.applyAction({ name: 'file-explorer-show-folder-context-menu', value: "1" })
+        this.virtualFileExplorer.applyAction({ name: 'file-explorer-show-folder-context-menu', value: currentHoveredFolderName })
         break;
       case 'editor':
         this.virtualEditors[this.currentEditorIndex].virtualEditor.applyAction({ name: 'editor-show-context-menu', value: "1" })
@@ -275,7 +302,7 @@ export class VirtualIDE {
     }
   }
 
-  executeMouseLeftClickSideEffects(currentMouseLocation: MouseLocation, currentHoveredFileName: string, currentHoveredFolderName: string): void {
+  executeMouseLeftClickSideEffects(currentMouseLocation: MouseLocation, currentHoveredFileName: string, currentHoveredFolderName: string, currentHoveredEditorTabFileName: string): void {
     
     // hide all context menus
     this.virtualFileExplorer.applyAction({ name: 'file-explorer-hide-context-menu', value: "1" })
@@ -339,6 +366,72 @@ export class VirtualIDE {
         this.currentEditorIndex = editorIndex;
       }
     }
+
+    // left click on editor tab - we need to set the current editor index to that editor
+    if (currentMouseLocation === 'editor-tab') {
+      // find the open editor tab index by currentHoveredEditorTabFileName
+      const editorIndex = this.virtualEditors.findIndex((editor) => editor.fileName === currentHoveredEditorTabFileName);
+      if (this.verbose) console.log(`VirtualIDE: Setting current editor index to: ${editorIndex}`);
+      this.logs.push({ source: 'virtual-ide', type: 'info', message: `Setting current editor index to: ${editorIndex}`, timestamp: Date.now() });
+      this.currentEditorIndex = editorIndex;
+    }
+
+    // left click on editor tab close - we need to close that editor!
+    if (currentMouseLocation === 'editor-tab-close') {
+      // if file is not saved, set isUnsavedChangesDialogOpen to true and that's it
+      if (!this.virtualEditors[this.currentEditorIndex].virtualEditor.getIsSaved()) {
+        this.unsavedFileName = getRootFileName(this.virtualEditors[this.currentEditorIndex].fileName);
+        this.isUnsavedChangesDialogOpen = true;
+        return;
+      }
+
+      // find the open editor tab index by currentHoveredEditorTabFileName
+      console.log("EXECUTE MOUSE LEFT CLICK SIDE EFFECTS, currentHoveredEditorTabFileName", currentHoveredEditorTabFileName)
+      console.log("EXECUTE MOUSE LEFT CLICK SIDE EFFECTS, this.virtualEditors", this.virtualEditors)
+      const editorIndex = this.virtualEditors.findIndex((editor) => editor.fileName === currentHoveredEditorTabFileName);
+      if (this.verbose) console.log(`VirtualIDE: Closing editor: ${this.virtualEditors[editorIndex].fileName}`);
+      this.logs.push({ source: 'virtual-ide', type: 'info', message: `Closing editor: ${this.virtualEditors[editorIndex].fileName}`, timestamp: Date.now() });
+      this.virtualEditors.splice(editorIndex, 1);
+      // set the current editor index to the first editor
+      if (this.virtualEditors.length > 0) {
+        this.currentEditorIndex = 0;
+      } else {
+        this.currentEditorIndex = -1;
+      }
+    }
+
+    // left click "save" button on unsaved changes dialog - we need to save the file and close it
+    if (currentMouseLocation === 'unsaved-changes-dialog-button-save') {
+      const filename = this.virtualEditors[this.currentEditorIndex].fileName;
+      if (this.verbose) console.log(`VirtualIDE: Saving file: ${filename}`);
+      this.logs.push({ source: 'virtual-ide', type: 'info', message: `Saving file: ${filename}`, timestamp: Date.now() });
+      this.virtualFileExplorer.applyAction({ name: "file-explorer-set-file-contents", value: `${filename}${advancedCommandValueSeparator}${this.virtualEditors[this.currentEditorIndex].virtualEditor.getCode()}` });
+      // close the editor
+      this.virtualEditors.splice(this.currentEditorIndex, 1);
+      this.isUnsavedChangesDialogOpen = false;
+      this.unsavedFileName = "";
+    }
+
+    // left click "don't save" button on unsaved changes dialog - we need to close the editor
+    if (currentMouseLocation === 'unsaved-changes-dialog-button-dont-save') {
+      // close the editor
+      this.virtualEditors.splice(this.currentEditorIndex, 1);
+      // set the current editor index to the first editor
+      if (this.virtualEditors.length > 0) {
+        this.currentEditorIndex = 0;
+      } else {
+        this.currentEditorIndex = -1;
+      }
+      this.isUnsavedChangesDialogOpen = false;
+      this.unsavedFileName = "";
+    }
+
+    // left click "cancel" button on unsaved changes dialog - we need to close the dialog
+    if (currentMouseLocation === 'unsaved-changes-dialog-button-cancel') {
+      this.isUnsavedChangesDialogOpen = false;
+      this.unsavedFileName = "";
+    }
+
   }
 
   /**
@@ -660,6 +753,8 @@ export class VirtualIDE {
    */
   getCourseSnapshot(): ICourseSnapshot {
     return {
+      isUnsavedChangesDialogOpen: this.isUnsavedChangesDialogOpen,
+      unsavedFileName: this.unsavedFileName,
       fileExplorerSnapshot: this.getFileExplorerSnapshot(),
       editorSnapshot: this.getEditorSnapshot(),
       terminalSnapshot: this.getTerminalSnapshot(),

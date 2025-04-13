@@ -6,7 +6,7 @@ import { VirtualTerminal } from "@fullstackcraftllc/codevideo-virtual-terminal";
 
 describe("VirtualIDE", () => {
     describe("complex tutorial scenario", () => {
-        it("should maintain correct state throughout a complete tutorial", () => {
+        it("left clicking after moving to a file", () => {
             const virtualIDE = new VirtualIDE(undefined, undefined, false);
             virtualIDE.addVirtualTerminal(new VirtualTerminal());
             virtualIDE.addVirtualAuthor(new VirtualAuthor());

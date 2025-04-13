@@ -260,6 +260,7 @@ describe("VirtualIDE", () => {
         },
         currentHoveredFileName: "",
         currentHoveredFolderName: "",
+        currentHoveredEditorTabFileName: "",
         location: "terminal",
         scrollDelta: 0,
         scrollPosition: {

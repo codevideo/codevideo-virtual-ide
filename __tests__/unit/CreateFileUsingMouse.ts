@@ -57,7 +57,7 @@ describe("VirtualIDE", () => {
           value: "1"
         },
         {
-          name: "mouse-move-file-explorer-context-menu-new-file",
+          name: "mouse-move-file-explorer-folder-context-menu-new-file",
           value: "1"
         },
         {
