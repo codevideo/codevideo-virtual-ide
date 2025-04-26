@@ -234,7 +234,15 @@ export class VirtualIDE {
 
     if (action.name === 'file-explorer-enter-new-file-input') {
       // get the current file name from the file explorer
-      const fileName = this.virtualFileExplorer.getCurrentFileExplorerSnapshot().newFileInputValue
+      const fileNameInput = this.virtualFileExplorer.getCurrentFileExplorerSnapshot().newFileInputValue
+      const parentPath = this.virtualFileExplorer.getCurrentFileExplorerSnapshot().newFileParentPath;
+
+      // Construct the full path, considering the parent path
+      let fileName = fileNameInput;
+      if (parentPath && !fileName.includes('/')) {
+        fileName = `${parentPath}/${fileName}`;
+      }
+
       // check if the file already exists
       const fileExists = this.virtualFileExplorer.getFiles().includes(fileName);
       if (fileExists) {
@@ -268,7 +276,15 @@ export class VirtualIDE {
 
     if (action.name === 'file-explorer-enter-new-folder-input') {
       // get the current file name from the file explorer
-      const folderName = this.virtualFileExplorer.getCurrentFileExplorerSnapshot().newFolderInputValue
+      const folderNameInput = this.virtualFileExplorer.getCurrentFileExplorerSnapshot().newFolderInputValue
+      const parentPath = this.virtualFileExplorer.getCurrentFileExplorerSnapshot().newFolderParentPath;
+
+      // Construct the full path, considering the parent path
+      let folderName = folderNameInput;
+      if (parentPath && !folderName.includes('/')) {
+        folderName = `${parentPath}/${folderName}`;
+      }
+
       // check if the folder already exists
       const folderExists = this.virtualFileExplorer.getFiles().includes(folderName);
       if (folderExists) {
@@ -336,11 +352,11 @@ export class VirtualIDE {
     // folder context menu (opened when  right clicking on a file)
     if (currentMouseLocation === "file-explorer-folder-context-menu-new-file") {
       // ... then toggle activation of file-explorer-show-new-file-input
-      this.virtualFileExplorer.applyAction({ name: 'file-explorer-show-new-file-input', value: "1" })
+      this.virtualFileExplorer.applyAction({ name: 'file-explorer-show-new-file-input', value: currentHoveredFolderName })
     }
     if (currentMouseLocation === "file-explorer-folder-context-menu-new-folder") {
       // ... then toggle activation of file-explorer-show-new-folder-input
-      this.virtualFileExplorer.applyAction({ name: 'file-explorer-show-new-folder-input', value: "1" })
+      this.virtualFileExplorer.applyAction({ name: 'file-explorer-show-new-folder-input', value: currentHoveredFolderName })
     }
     if (currentMouseLocation === "file-explorer-folder-context-menu-rename") {
       // ... then set file-explorer-rename-folder-draft-state

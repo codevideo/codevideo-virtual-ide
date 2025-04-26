@@ -92,6 +92,8 @@ describe("VirtualIDE", () => {
         "originalFolderBeingRenamed": "",
         "renameFileInputValue": "",
         "renameFolderInputValue": "",
+        "newFileParentPath": "",
+        "newFolderParentPath": "",
       })
 
 
@@ -141,16 +143,19 @@ describe("VirtualIDE", () => {
       // expect that the hello-world.js file is in the input
       expect(virtualIDE.getFileExplorerSnapshot()).toEqual({
         fileStructure: {
-          src: { type: 'directory', content: '', collapsed: false, children: {} },
-          'hello-world.js': {
-            type: 'file',
-            content: '',
-            language: 'js',
-            caretPosition: {
-              col: 0,
-              row: 0,
+          src: {
+            type: 'directory', content: '', collapsed: false, children: {
+              'hello-world.js': {
+                type: 'file',
+                content: '',
+                language: 'js',
+                caretPosition: {
+                  col: 0,
+                  row: 0,
+                }
+              }
             }
-          }
+          },
         },
         isFileExplorerContextMenuOpen: false,
         isFileContextMenuOpen: false,
@@ -164,12 +169,14 @@ describe("VirtualIDE", () => {
         originalFileBeingRenamed: '',
         originalFolderBeingRenamed: '',
         renameFileInputValue: '',
-        renameFolderInputValue: ''
+        renameFolderInputValue: '',
+        newFileParentPath: 'src',
+        newFolderParentPath: 'src',
       })
 
       // the editor should also be open in the editor
       expect(virtualIDE.getEditorSnapshot().editors.length).toEqual(1)
-      expect(virtualIDE.getEditorSnapshot().editors[0].filename).toEqual("hello-world.js")
+      expect(virtualIDE.getEditorSnapshot().editors[0].filename).toEqual("src/hello-world.js")
     });
   });
 });
