@@ -53,7 +53,7 @@ export class VirtualIDE {
    * The virtual editors that represent the editing area. Filenames are absolute and also represent the open tabs of the IDE.
    */
   public virtualEditors: Array<{ fileName: string, virtualEditor: VirtualEditor }> = [];
-  
+
   /**
    * The virtual terminals that represent the terminals. Since they have no file name, we just reference them by index.
    */
@@ -62,7 +62,6 @@ export class VirtualIDE {
   private currentEditorIndex: number = -1;
   private currentTerminalIndex: number = -1;
   private currentAuthorIndex: number = -1;
-  private currentCursorPosition: { x: number; y: number } = { x: -1, y: -1 }; // x is column, y is row - we allow both to be negative because a user may not want to have a cursor shown or used
   private isUnsavedChangesDialogOpen: boolean = false;
   private unsavedFileName: string = "";
   private verbose: boolean = false;
@@ -134,15 +133,19 @@ export class VirtualIDE {
    */
   applyCourseSnapshot(courseSnapshot: ICourseSnapshot): void {
     // virtual IDE level properties
+    if (this.verbose) console.log("VirtualIDE: Reconstitution: isUnsavedChangesDialogOpen: ", courseSnapshot.isUnsavedChangesDialogOpen);
     this.isUnsavedChangesDialogOpen = courseSnapshot.isUnsavedChangesDialogOpen;
+    if (this.verbose) console.log("VirtualIDE: Reconstitution: unsavedFileName: ", courseSnapshot.unsavedFileName);
     this.unsavedFileName = courseSnapshot.unsavedFileName;
 
     // file explorer snapshot
+    if (this.verbose) console.log("VirtualIDE: Reconstitution: fileExplorerSnapshot object: ", JSON.stringify(courseSnapshot.fileExplorerSnapshot));
     this.virtualFileExplorer.applySnapshot(courseSnapshot.fileExplorerSnapshot);
 
     // editor snapshot
     courseSnapshot.editorSnapshot.editors.forEach((editor) => {
       const virtualEditor = new VirtualEditor([], undefined, this.verbose);
+      if (this.verbose) console.log("VirtualIDE: Reconstitution: editor object: ", JSON.stringify(editor));
       virtualEditor.setValuesFromEditor(editor);
       this.addVirtualEditor(editor.filename, virtualEditor);
     })
@@ -150,6 +153,7 @@ export class VirtualIDE {
     // terminal snapshot
     courseSnapshot.terminalSnapshot.terminals.forEach((terminal) => {
       const virtualTerminal = new VirtualTerminal(undefined, undefined, this.verbose);
+      if (this.verbose) console.log("VirtualIDE: Reconstitution: terminal object: ", JSON.stringify(terminal));
       virtualTerminal.setValuesFromTerminal(terminal);
       this.addVirtualTerminal(virtualTerminal);
     });
@@ -160,6 +164,7 @@ export class VirtualIDE {
     // author snapshot
     courseSnapshot.authorSnapshot.authors.forEach((author) => {
       const virtualAuthor = new VirtualAuthor(undefined, this.verbose);
+      if (this.verbose) console.log("VirtualIDE: Reconstitution: author object: ", JSON.stringify(author));
       virtualAuthor.setValuesFromAuthor(author);
       this.addVirtualAuthor(virtualAuthor);
     });
@@ -357,7 +362,7 @@ export class VirtualIDE {
   }
 
   executeMouseLeftClickSideEffects(currentMouseLocation: MouseLocation, currentHoveredFileName: string, currentHoveredFolderName: string, currentHoveredEditorTabFileName: string): void {
-    
+
     // hide all context menus
     this.virtualFileExplorer.applyAction({ name: 'file-explorer-hide-context-menu', value: "1" })
     this.virtualFileExplorer.applyAction({ name: 'file-explorer-hide-file-context-menu', value: "1" })
@@ -414,9 +419,9 @@ export class VirtualIDE {
         // editor was not found in editor tabs, so we need to create it and set the current editor index
         this.addVirtualEditor(filename, new VirtualEditor([], undefined, this.verbose));
         const newEditorIndex = this.virtualEditors.findIndex((editor) => editor.fileName === filename);
-        this.currentEditorIndex = newEditorIndex === -1 ?  this.virtualEditors.length - 1 : newEditorIndex;
+        this.currentEditorIndex = newEditorIndex === -1 ? this.virtualEditors.length - 1 : newEditorIndex;
       } else {
-      // else just set the current editor index to that index
+        // else just set the current editor index to that index
         this.currentEditorIndex = editorIndex;
       }
     }
@@ -843,6 +848,7 @@ export class VirtualIDE {
   }
 
   private reconstituteFromCourseAtActionIndex(course: ICourse, actionIndex?: number): void {
+    if (this.verbose) console.log(`VirtualIDE: reconstituting from course at action index: ${actionIndex}`);
     // if action index is not provided, set it to 0
     if (actionIndex === undefined) {
       actionIndex = 0;
@@ -863,7 +869,8 @@ export class VirtualIDE {
     const lesson = course.lessons[lessonIndex];
     // if initial snapshot is defined, apply it to the virtual IDE
     if (lesson.initialSnapshot) {
-        this.applyCourseSnapshot(lesson.initialSnapshot);
+      if (this.verbose) console.log(`VirtualIDE: Applying initial snapshot from lesson ${lessonIndex}`);
+      this.applyCourseSnapshot(lesson.initialSnapshot);
     }
 
     // generate giant array of all actions from all lessons
@@ -872,11 +879,13 @@ export class VirtualIDE {
       allActions.push(...lesson.actions);
     }
 
-    const actionsToApply = allActions.slice(0, actionIndex);
+    const actionsToApply = allActions.slice(0, actionIndex+1);
+    if (this.verbose) console.log(`VirtualIDE: applying ${actionsToApply.length} actions`);
     this.applyActions(actionsToApply);
   }
 
   private reconstituteFromLessonAtActionIndex(lesson: ILesson, actionIndex?: number): void {
+    if (this.verbose) console.log(`VirtualIDE: reconstituting from lesson at action index: ${actionIndex}`);
     // if action index is not provided, set it to 0
     if (actionIndex === undefined) {
       actionIndex = 0;
@@ -886,14 +895,17 @@ export class VirtualIDE {
     let initialSnapshot: ICourseSnapshot | undefined = lesson.initialSnapshot;
     // if initial snapshot is defined, apply it to the virtual IDE
     if (initialSnapshot) {
-        this.applyCourseSnapshot(initialSnapshot);
+      if (this.verbose) console.log(`VirtualIDE: Applying initial snapshot from lesson`);
+      this.applyCourseSnapshot(initialSnapshot);
     }
 
-    const actionsToApply = lesson.actions.slice(0, actionIndex);
+    const actionsToApply = lesson.actions.slice(0, actionIndex+1);
+    if (this.verbose) console.log(`VirtualIDE: applying ${actionsToApply.length} actions`);
     this.applyActions(actionsToApply);
   }
 
   private reconstituteFromActionsAtActionIndex(actions: IAction[], actionIndex?: number): void {
+    if (this.verbose) console.log(`VirtualIDE: reconstituting from actions at action index: ${actionIndex}`);
     // if action index is not provided, set it to 0
     if (actionIndex === undefined) {
       actionIndex = 0;
@@ -901,7 +913,8 @@ export class VirtualIDE {
 
     // **(note with pure action input, there is no snapshot to start from, so we just apply the actions)**
 
-    const actionsToApply = actions.slice(0, actionIndex);
+    const actionsToApply = actions.slice(0, actionIndex+1);
+    if (this.verbose) console.log(`VirtualIDE: applying ${actionsToApply.length} actions`);
     this.applyActions(actionsToApply);
   }
 }
