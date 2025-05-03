@@ -128,6 +128,44 @@ export class VirtualIDE {
   }
 
   /**
+   * Applies a course snapshot to the virtual IDE.
+   * Goes piece by piece through the course snapshot and apply it to the various parts of the virtual IDE
+   * @param courseSnapshot The course snapshot to apply.
+   */
+  applyCourseSnapshot(courseSnapshot: ICourseSnapshot): void {
+    // virtual IDE level properties
+    this.isUnsavedChangesDialogOpen = courseSnapshot.isUnsavedChangesDialogOpen;
+    this.unsavedFileName = courseSnapshot.unsavedFileName;
+
+    // file explorer snapshot
+    this.virtualFileExplorer.applySnapshot(courseSnapshot.fileExplorerSnapshot);
+
+    // editor snapshot
+    courseSnapshot.editorSnapshot.editors.forEach((editor) => {
+      const virtualEditor = new VirtualEditor([], undefined, this.verbose);
+      virtualEditor.setValuesFromEditor(editor);
+      this.addVirtualEditor(editor.filename, virtualEditor);
+    })
+
+    // terminal snapshot
+    courseSnapshot.terminalSnapshot.terminals.forEach((terminal) => {
+      const virtualTerminal = new VirtualTerminal(undefined, undefined, this.verbose);
+      virtualTerminal.setValuesFromTerminal(terminal);
+      this.addVirtualTerminal(virtualTerminal);
+    });
+
+    // mouse snapshot
+    this.virtualMouse.applySnapshot(courseSnapshot.mouseSnapshot);
+
+    // author snapshot
+    courseSnapshot.authorSnapshot.authors.forEach((author) => {
+      const virtualAuthor = new VirtualAuthor(undefined, this.verbose);
+      virtualAuthor.setValuesFromAuthor(author);
+      this.addVirtualAuthor(virtualAuthor);
+    });
+  }
+
+  /**
    * Applies an action to the virtual IDE.
    * @param action The action to apply.
    */
@@ -684,17 +722,6 @@ export class VirtualIDE {
   }
 
   /**
-   * Gets the current cursor position.
-   * @returns The current cursor position.
-   */
-  getCursorPosition(): { x: number; y: number } | null {
-    if (this.currentCursorPosition.x === -1 || this.currentCursorPosition.y === -1) {
-      return null;
-    }
-    return this.currentCursorPosition;
-  }
-
-  /**
    * Gets the open files in the virtual IDE.
    * @returns The open files in the virtual IDE.
    */
@@ -816,8 +843,27 @@ export class VirtualIDE {
   }
 
   private reconstituteFromCourseAtActionIndex(course: ICourse, actionIndex?: number): void {
+    // if action index is not provided, set it to 0
     if (actionIndex === undefined) {
       actionIndex = 0;
+    }
+
+    // find corresponding lesson of which the action index is part of
+    let actionCounter = 0;
+    let lessonIndex = 0;
+    for (const lesson of course.lessons) {
+      actionCounter += lesson.actions.length;
+      if (actionCounter >= actionIndex) {
+        break;
+      }
+      lessonIndex++;
+    }
+
+    // use that lesson's  initial snapshot
+    const lesson = course.lessons[lessonIndex];
+    // if initial snapshot is defined, apply it to the virtual IDE
+    if (lesson.initialSnapshot) {
+        this.applyCourseSnapshot(lesson.initialSnapshot);
     }
 
     // generate giant array of all actions from all lessons
@@ -831,8 +877,16 @@ export class VirtualIDE {
   }
 
   private reconstituteFromLessonAtActionIndex(lesson: ILesson, actionIndex?: number): void {
+    // if action index is not provided, set it to 0
     if (actionIndex === undefined) {
       actionIndex = 0;
+    }
+
+    // use the initial snapshot of the lesson, apply actions, and return the final snapshot
+    let initialSnapshot: ICourseSnapshot | undefined = lesson.initialSnapshot;
+    // if initial snapshot is defined, apply it to the virtual IDE
+    if (initialSnapshot) {
+        this.applyCourseSnapshot(initialSnapshot);
     }
 
     const actionsToApply = lesson.actions.slice(0, actionIndex);
@@ -840,9 +894,12 @@ export class VirtualIDE {
   }
 
   private reconstituteFromActionsAtActionIndex(actions: IAction[], actionIndex?: number): void {
+    // if action index is not provided, set it to 0
     if (actionIndex === undefined) {
       actionIndex = 0;
     }
+
+    // **(note with pure action input, there is no snapshot to start from, so we just apply the actions)**
 
     const actionsToApply = actions.slice(0, actionIndex);
     this.applyActions(actionsToApply);

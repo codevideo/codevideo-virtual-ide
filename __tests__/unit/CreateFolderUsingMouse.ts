@@ -170,8 +170,8 @@ describe("VirtualIDE", () => {
         originalFolderBeingRenamed: '',
         renameFileInputValue: '',
         renameFolderInputValue: '',
-        newFileParentPath: 'src',
-        newFolderParentPath: 'src',
+        newFileParentPath: '',
+        newFolderParentPath: '',
       })
 
       // the editor should also be open in the editor

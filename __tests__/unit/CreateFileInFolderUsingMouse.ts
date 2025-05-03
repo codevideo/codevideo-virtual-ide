@@ -6,7 +6,7 @@ import { VirtualTerminal } from "@fullstackcraftllc/codevideo-virtual-terminal";
 
 describe("VirtualIDE", () => {
   describe("create file in folder using mouse", () => {
-    it("should correctly place the new file inside the folder", () => {
+    it("should correctly place the new file inside the folder and reset parent paths", () => {
       // Initialize the Virtual IDE
       const virtualIDE = new VirtualIDE(undefined, undefined, false);
       virtualIDE.addVirtualTerminal(new VirtualTerminal());
@@ -64,8 +64,9 @@ describe("VirtualIDE", () => {
       console.log("newFileParentPath:", afterRightClickSnapshot.newFileParentPath);
       console.log("newFolderParentPath:", afterRightClickSnapshot.newFolderParentPath);
       
-      // Verify file input is visible
+      // Verify file input is visible and parent path is set correctly
       expect(afterRightClickSnapshot.isNewFileInputVisible).toBe(true);
+      expect(afterRightClickSnapshot.newFileParentPath).toBe("src");
       
       // Type file name and press enter
       const typeFileNameActions: IAction[] = [
@@ -107,6 +108,80 @@ describe("VirtualIDE", () => {
       const editorSnapshot = virtualIDE.getEditorSnapshot();
       expect(editorSnapshot.editors.length).toBe(1);
       expect(editorSnapshot.editors[0].filename).toBe("src/index.ts");
+      
+      // STEP 3: Create another file at the root level to test path reset
+      console.log("Testing parent path reset...");
+      
+      // Check parent paths after creating the nested file
+      const afterNestedFileSnapshot = virtualIDE.getFileExplorerSnapshot();
+      console.log("Parent paths after nested file creation:");
+      console.log("newFileParentPath:", afterNestedFileSnapshot.newFileParentPath);
+      console.log("newFolderParentPath:", afterNestedFileSnapshot.newFolderParentPath);
+      
+      // TEST THAT THE FIX ADDRESSES: Path should be reset after file creation
+      // If this fails, it indicates the bug where parent path is remembered
+      expect(afterNestedFileSnapshot.newFileParentPath).toBe("");
+      
+      // Now try to create a file at the root level
+      const createRootFileActions: IAction[] = [
+        // Move mouse to file explorer and right-click
+        { name: "mouse-move-file-explorer", value: "1" },
+        { name: "mouse-right-click", value: "1" },
+        // Select "New File" from context menu
+        { name: "mouse-move-file-explorer-context-menu-new-file", value: "1" },
+        { name: "mouse-left-click", value: "1" }
+      ];
+      
+      // Apply actions to open new file input at root
+      virtualIDE.applyActions(createRootFileActions);
+      
+      // Verify that when creating a file at root, parent path is empty
+      const rootFileContextSnapshot = virtualIDE.getFileExplorerSnapshot();
+      console.log("After right-click for root file:");
+      console.log("isNewFileInputVisible:", rootFileContextSnapshot.isNewFileInputVisible);
+      console.log("newFileParentPath:", rootFileContextSnapshot.newFileParentPath);
+      
+      // TEST FOR THE FIXED BEHAVIOR: Parent path should be empty for root-level file
+      expect(rootFileContextSnapshot.newFileParentPath).toBe("");
+      
+      // Create the root file
+      const typeRootFileNameActions: IAction[] = [
+        { name: "file-explorer-type-new-file-input", value: "config.json" },
+        { name: "file-explorer-enter-new-file-input", value: "1" }
+      ];
+      
+      // Apply actions to create the file at root
+      virtualIDE.applyActions(typeRootFileNameActions);
+      
+      // Verify the final structure includes both the nested file and root file
+      const finalRootFileSnapshot = virtualIDE.getFileExplorerSnapshot();
+      expect(finalRootFileSnapshot.fileStructure).toEqual({
+        "src": {
+          type: "directory",
+          content: "",
+          collapsed: false,
+          children: {
+            "index.ts": {
+              type: "file",
+              content: "",
+              language: "ts",
+              caretPosition: {
+                row: 0,
+                col: 0
+              }
+            }
+          }
+        },
+        "config.json": {
+          type: "file",
+          content: "",
+          language: "json",
+          caretPosition: {
+            row: 0,
+            col: 0
+          }
+        }
+      });
     });
   });
 });

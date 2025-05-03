@@ -5,8 +5,8 @@ import { VirtualAuthor } from "@fullstackcraftllc/codevideo-virtual-author";
 import { VirtualTerminal } from "@fullstackcraftllc/codevideo-virtual-terminal";
 
 describe("VirtualIDE", () => {
-  describe("create nested folder structure and file using mouse", () => {
-    it("should correctly create a folder within a folder and a file inside the nested folder", () => {
+  describe("create nested folder structure and verify parent path reset", () => {
+    it("should correctly create nested folders and reset parent paths", () => {
       // Initialize the Virtual IDE
       const virtualIDE = new VirtualIDE(undefined, undefined, false);
       virtualIDE.addVirtualTerminal(new VirtualTerminal());
@@ -41,6 +41,7 @@ describe("VirtualIDE", () => {
       
       console.log("After creating src folder:");
       console.log(JSON.stringify(rootFolderSnapshot.fileStructure, null, 2));
+      console.log("newFolderParentPath:", rootFolderSnapshot.newFolderParentPath);
       
       // STEP 2: Create a dev folder inside the src folder
       const createNestedFolderActions: IAction[] = [
@@ -59,11 +60,11 @@ describe("VirtualIDE", () => {
       const afterRightClickSnapshot = virtualIDE.getFileExplorerSnapshot();
       console.log("After right-click on src folder for nested folder:");
       console.log("isNewFolderInputVisible:", afterRightClickSnapshot.isNewFolderInputVisible);
-      console.log("newFileParentPath:", afterRightClickSnapshot.newFileParentPath);
       console.log("newFolderParentPath:", afterRightClickSnapshot.newFolderParentPath);
       
-      // Verify folder input is visible
+      // Verify folder input is visible and parent path is set correctly
       expect(afterRightClickSnapshot.isNewFolderInputVisible).toBe(true);
+      expect(afterRightClickSnapshot.newFolderParentPath).toBe("src");
       
       // Type folder name and press enter
       const typeNestedFolderNameActions: IAction[] = [
@@ -97,47 +98,48 @@ describe("VirtualIDE", () => {
         }
       });
       
-      // STEP 3: Create a file inside the dev folder (which is inside src)
-      const createNestedFileActions: IAction[] = [
-        // Move mouse to the dev folder and right-click
-        { name: "mouse-move-file-explorer-folder", value: "src/dev" },
+      // STEP 3: Check if parent path is reset after creating the nested folder
+      console.log("Testing parent path reset...");
+      console.log("newFolderParentPath after nested folder creation:", nestedFolderSnapshot.newFolderParentPath);
+      
+      // TEST THAT THE FIX ADDRESSES: Parent path should be reset after folder creation
+      // If this fails, it indicates the bug where parent path is remembered
+      expect(nestedFolderSnapshot.newFolderParentPath).toBe("");
+      
+      // STEP 4: Try to create another folder at the root level
+      const createRootFolder2Actions: IAction[] = [
+        // Move mouse to file explorer and right-click
+        { name: "mouse-move-file-explorer", value: "1" },
         { name: "mouse-right-click", value: "1" },
-        // Select "New File" from context menu
-        { name: "mouse-move-file-explorer-folder-context-menu-new-file", value: "1" },
+        // Select "New Folder" from context menu
+        { name: "mouse-move-file-explorer-context-menu-new-folder", value: "1" },
         { name: "mouse-left-click", value: "1" }
       ];
       
-      // Apply actions to open new file input
-      virtualIDE.applyActions(createNestedFileActions);
+      // Apply actions to open new folder input at root
+      virtualIDE.applyActions(createRootFolder2Actions);
       
-      // Log state after right-clicking and selecting "New File"
-      const afterNestedFolderRightClickSnapshot = virtualIDE.getFileExplorerSnapshot();
-      console.log("After right-click on dev folder for nested file:");
-      console.log("isNewFileInputVisible:", afterNestedFolderRightClickSnapshot.isNewFileInputVisible);
-      console.log("newFileParentPath:", afterNestedFolderRightClickSnapshot.newFileParentPath);
-      console.log("newFolderParentPath:", afterNestedFolderRightClickSnapshot.newFolderParentPath);
+      // Verify that when creating a folder at root, parent path is empty
+      const rootFolder2ContextSnapshot = virtualIDE.getFileExplorerSnapshot();
+      console.log("After right-click for root folder:");
+      console.log("isNewFolderInputVisible:", rootFolder2ContextSnapshot.isNewFolderInputVisible);
+      console.log("newFolderParentPath:", rootFolder2ContextSnapshot.newFolderParentPath);
       
-      // Verify file input is visible
-      expect(afterNestedFolderRightClickSnapshot.isNewFileInputVisible).toBe(true);
+      // TEST FOR THE FIXED BEHAVIOR: Parent path should be empty for root-level folder
+      expect(rootFolder2ContextSnapshot.newFolderParentPath).toBe("");
       
-      // Type file name and press enter
-      const typeNestedFileNameActions: IAction[] = [
-        { name: "file-explorer-type-new-file-input", value: "config.json" },
-        { name: "file-explorer-enter-new-file-input", value: "1" }
+      // Create the second root folder
+      const typeRootFolder2NameActions: IAction[] = [
+        { name: "file-explorer-type-new-folder-input", value: "lib" },
+        { name: "file-explorer-enter-new-folder-input", value: "1" }
       ];
       
-      // Apply actions to create the file in the nested folder
-      virtualIDE.applyActions(typeNestedFileNameActions);
+      // Apply actions to create the folder at root
+      virtualIDE.applyActions(typeRootFolder2NameActions);
       
-      // Get final state
-      const finalSnapshot = virtualIDE.getFileExplorerSnapshot();
-      
-      // Log the final file structure for debugging
-      console.log("Final file structure with nested file:");
-      console.log(JSON.stringify(finalSnapshot.fileStructure, null, 2));
-      
-      // CRITICAL TEST: Verify the final structure with the nested file using full structure comparison
-      expect(finalSnapshot.fileStructure).toEqual({
+      // Verify the final structure includes both the nested folder and root folders
+      const finalFolderSnapshot = virtualIDE.getFileExplorerSnapshot();
+      expect(finalFolderSnapshot.fileStructure).toEqual({
         "src": {
           type: "directory",
           content: "",
@@ -147,26 +149,17 @@ describe("VirtualIDE", () => {
               type: "directory",
               content: "",
               collapsed: false,
-              children: {
-                "config.json": {
-                  type: "file",
-                  content: "",
-                  language: "json",
-                  caretPosition: {
-                    row: 0,
-                    col: 0
-                  }
-                }
-              }
+              children: {}
             }
           }
+        },
+        "lib": {
+          type: "directory",
+          content: "",
+          collapsed: false,
+          children: {}
         }
       });
-      
-      // Verify the opened file in the editor has the correct path
-      const editorSnapshot = virtualIDE.getEditorSnapshot();
-      expect(editorSnapshot.editors.length).toBe(1);
-      expect(editorSnapshot.editors[0].filename).toBe("src/dev/config.json");
     });
   });
 });
