@@ -199,8 +199,8 @@ describe("VirtualIDE", () => {
           children: {
             "hello-world.js": {
               caretPosition: {
-                row: 0,
-                col: 0
+                row: 3,
+                col: 22
               },
               type: "file",
               content: "const { log } = require('./utils/logger');\n\nlog('Hello, world!');",
@@ -213,8 +213,8 @@ describe("VirtualIDE", () => {
               children: {
                 "logger.js": {
                   caretPosition: {
-                    row: 0,
-                    col: 0
+                    row: 3,
+                    col: 2
                   },
                   type: "file",
                   content: "export const log = (message) => {\n    console.log(message);\n}",

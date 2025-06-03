@@ -97,8 +97,8 @@ describe("VirtualIDE", () => {
           children: {
             "hello-world.js": {
               caretPosition: {
-                row: 0,
-                col: 0
+                row: 1,
+                col: 30
               },
               type: "file",
               content: "console.log('Hello, world!');",

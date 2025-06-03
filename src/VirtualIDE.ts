@@ -237,15 +237,17 @@ export class VirtualIDE {
       this.executeTerminalCommandSideEffects();
     }
 
-    // another super special side effect - on editor-save we persist the contents to the file explorer
+    // another super special side effect - on editor-save we persist the contents AND caret position to the file explorer
     if (action.name === "editor-save") {
-      console.log("EXECUTE EDITOR SAVE SIDE EFFECTS: this.currentEditorIndex", this.currentEditorIndex)
-      console.log("EXECUTE EDITOR SAVE SIDE EFFECTS: this.virtualEditors.length", this.virtualEditors.length)
+      // console.log("EXECUTE EDITOR SAVE SIDE EFFECTS: this.currentEditorIndex", this.currentEditorIndex)
+      // console.log("EXECUTE EDITOR SAVE SIDE EFFECTS: this.virtualEditors.length", this.virtualEditors.length)
       const editor = this.virtualEditors[this.currentEditorIndex];
       const filename = editor.fileName;
       const contents = editor.virtualEditor.getCode();
-      if (this.verbose) console.log(`VirtualIDE: Saving file: <${filename}> with contents: <${contents}>`);
+      const caretPosition = editor.virtualEditor.getCurrentCaretPosition();
+      if (this.verbose) console.log(`VirtualIDE: Saving file: <${filename}> with contents: <${contents}>, caret position: <${caretPosition}>`);
       this.virtualFileExplorer.applyAction({ name: "file-explorer-set-file-contents", value: `${filename}${advancedCommandValueSeparator}${contents}` });
+      this.virtualFileExplorer.applyAction({ name: "file-explorer-set-file-caret-position", value: `${filename}${advancedCommandValueSeparator}${caretPosition.row}${advancedCommandValueSeparator}${caretPosition.col}` });
     }
 
     // and yet another super special side effect - on file-explorer-close-file we need to close the editor
@@ -294,7 +296,7 @@ export class VirtualIDE {
         this.logs.push({ source: 'virtual-ide', type: 'warning', message: `File already exists: ${fileName}`, timestamp: Date.now() });
       } else {
         // if it doesn't, create the file, hide the input, clear the input, and open the file
-        console.log("FILE IS ", fileName)
+        // console.log("FILE IS ", fileName)
         this.virtualFileExplorer.applyAction({ name: 'file-explorer-create-file', value: fileName })
         this.virtualFileExplorer.applyAction({ name: 'file-explorer-hide-new-file-input', value: "1" })
         this.virtualFileExplorer.applyAction({ name: 'file-explorer-clear-new-file-input', value: "1" })
@@ -412,7 +414,7 @@ export class VirtualIDE {
 
     // side effect for clicking file in file explorer case - we need to open that file in the editor!
     if (currentMouseLocation === 'file-explorer-file') {
-      console.log("EXECUTE MOUSE LEFT CLICK SIDE EFFECTS, currentHoveredFileName", currentHoveredFileName)
+      // console.log("EXECUTE MOUSE LEFT CLICK SIDE EFFECTS, currentHoveredFileName", currentHoveredFileName)
       const filename = currentHoveredFileName;
       const editorIndex = this.virtualEditors.findIndex((editor) => editor.fileName === filename);
       if (editorIndex === -1) {
@@ -445,8 +447,8 @@ export class VirtualIDE {
       }
 
       // find the open editor tab index by currentHoveredEditorTabFileName
-      console.log("EXECUTE MOUSE LEFT CLICK SIDE EFFECTS, currentHoveredEditorTabFileName", currentHoveredEditorTabFileName)
-      console.log("EXECUTE MOUSE LEFT CLICK SIDE EFFECTS, this.virtualEditors", this.virtualEditors)
+      // console.log("EXECUTE MOUSE LEFT CLICK SIDE EFFECTS, currentHoveredEditorTabFileName", currentHoveredEditorTabFileName)
+      // console.log("EXECUTE MOUSE LEFT CLICK SIDE EFFECTS, this.virtualEditors", this.virtualEditors)
       const editorIndex = this.virtualEditors.findIndex((editor) => editor.fileName === currentHoveredEditorTabFileName);
       if (this.verbose) console.log(`VirtualIDE: Closing editor: ${this.virtualEditors[editorIndex].fileName}`);
       this.logs.push({ source: 'virtual-ide', type: 'info', message: `Closing editor: ${this.virtualEditors[editorIndex].fileName}`, timestamp: Date.now() });
@@ -844,6 +846,7 @@ export class VirtualIDE {
     if (this.currentEditorIndex >= this.virtualEditors.length) {
       return undefined;
     }
+    // TODO: this anyway is sometimes undefined? how?
     return this.virtualEditors[this.currentEditorIndex].virtualEditor;
   }
 
