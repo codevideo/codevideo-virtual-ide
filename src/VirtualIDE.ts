@@ -414,14 +414,31 @@ export class VirtualIDE {
 
     // side effect for clicking file in file explorer case - we need to open that file in the editor!
     if (currentMouseLocation === 'file-explorer-file') {
+      // TODO - if this is a non-UTF 8 compatible file, we can preview it!
+      // const fileExtension = currentHoveredFileName.split('.').pop();
+      // if it's a binary extension, use the generic 'preview-file' action - TO BE DEFINED, and another blog post!
+
+
       // console.log("EXECUTE MOUSE LEFT CLICK SIDE EFFECTS, currentHoveredFileName", currentHoveredFileName)
       const filename = currentHoveredFileName;
       const editorIndex = this.virtualEditors.findIndex((editor) => editor.fileName === filename);
       if (editorIndex === -1) {
         // editor was not found in editor tabs, so we need to create it and set the current editor index
-        this.addVirtualEditor(filename, new VirtualEditor([], undefined, this.verbose));
+        
+        // check if we have initial code lines - could be a file that has already some content
+        const initialCodeLines = this.virtualFileExplorer.getFileContents(filename).split('\n');
+        this.addVirtualEditor(filename, new VirtualEditor(initialCodeLines, undefined, this.verbose));
+
+        // if we had initial code lines, we also need to set the editor as saved
+        this.virtualEditors[this.virtualEditors.length - 1].virtualEditor.applyAction({ name: 'editor-save', value: "1" });
+
         const newEditorIndex = this.virtualEditors.findIndex((editor) => editor.fileName === filename);
         this.currentEditorIndex = newEditorIndex === -1 ? this.virtualEditors.length - 1 : newEditorIndex;
+
+        // we also need to inform the file explorer that we opened a file
+        // TODO: doublecheck this doesn't cause other side effects!
+        this.virtualFileExplorer.applyAction({ name: 'file-explorer-open-file', value: filename });
+
       } else {
         // else just set the current editor index to that index
         this.currentEditorIndex = editorIndex;
