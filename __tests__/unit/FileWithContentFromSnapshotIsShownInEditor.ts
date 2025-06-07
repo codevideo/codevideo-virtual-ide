@@ -131,6 +131,7 @@ describe("VirtualIDE", () => {
             expect(courseSnapshot.editorSnapshot.editors[0].filename).toBe("main.go");
             expect(courseSnapshot.editorSnapshot.editors[0].content).toBe(content);
             expect(courseSnapshot.editorSnapshot.editors[0].isSaved).toBe(true);
+            expect(courseSnapshot.editorSnapshot.editors[0].isActive).toBe(true);
             expect(virtualIDE.getOpenFiles()).toEqual(["main.go"]);
         })
     })
