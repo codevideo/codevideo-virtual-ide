@@ -21,6 +21,7 @@ import {
   MouseLocation,
   isMouseAction,
   getRootFileName,
+  IFileEntry,
 } from "@fullstackcraftllc/codevideo-types";
 import { VirtualFileExplorer } from "@fullstackcraftllc/codevideo-virtual-file-explorer";
 import { VirtualMouse } from "@fullstackcraftllc/codevideo-virtual-mouse";
@@ -854,6 +855,14 @@ export class VirtualIDE {
    */
   getLogs(): Array<IVirtualLayerLog> {
     return this.logs;
+  }
+
+  /**
+   * Gets all file paths and their contents in the virtual IDE. Simply a wrapper around the file explorer's getFullFilePathsAndContents method.
+   * @returns The files in the virtual IDE.
+   */
+  getFullFilePathsAndContents(): Array<IFileEntry> {
+    return this.virtualFileExplorer.getFullFilePathsAndContents();
   }
 
   private getActiveEditorSafely(): VirtualEditor | undefined {
