@@ -1,6 +1,6 @@
 {
   "name": "@fullstackcraftllc/codevideo-virtual-ide",
-  "version": "1.0.28",
+  "version": "1.0.29",
   "description": "TypeScript class that simulates a full IDE.",
   "type": "module",
   "main": "dist/index.js",
@@ -10,7 +10,8 @@
     "test": "jest --testPathPattern='^(?!.*__tests__\\/fixtures).*$'",
     "test-unit": "jest --testPathPattern=unit",
     "test-specific": "jest --testPathPattern=EditorTypeWithNumbers",
-    "example": "tsc && node ./dist/example.js"
+    "example": "tsc && node ./dist/example.js",
+    "install-latest-virtuals": "npm install @fullstackcraftllc/codevideo-virtual-author@latest @fullstackcraftllc/codevideo-virtual-editor@latest @fullstackcraftllc/codevideo-virtual-file-explorer@latest @fullstackcraftllc/codevideo-virtual-mouse@latest @fullstackcraftllc/codevideo-virtual-terminal@latest"
   },
   "keywords": [
     "TypeScript",
@@ -40,7 +41,7 @@
   },
   "dependencies": {
     "@fullstackcraftllc/codevideo-virtual-author": "^1.0.4",
-    "@fullstackcraftllc/codevideo-virtual-editor": "^1.6.8",
+    "@fullstackcraftllc/codevideo-virtual-editor": "^1.7.0",
     "@fullstackcraftllc/codevideo-virtual-file-explorer": "^1.0.28",
     "@fullstackcraftllc/codevideo-virtual-mouse": "^1.0.10",
     "@fullstackcraftllc/codevideo-virtual-terminal": "^1.0.8"
