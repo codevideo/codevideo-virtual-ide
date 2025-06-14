@@ -75,7 +75,7 @@ describe("VirtualIDE", () => {
           "src": {
             type: "directory",
             content: "",
-            collapsed: false,
+            collapsed: true,
             children: {}
           }
         },
@@ -144,7 +144,7 @@ describe("VirtualIDE", () => {
       expect(virtualIDE.getFileExplorerSnapshot()).toEqual({
         fileStructure: {
           src: {
-            type: 'directory', content: '', collapsed: false, children: {
+            type: 'directory', content: '', collapsed: true, children: {
               'hello-world.js': {
                 type: 'file',
                 content: '',

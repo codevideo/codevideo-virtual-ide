@@ -143,12 +143,12 @@ describe("VirtualIDE", () => {
         "src": {
           type: "directory",
           content: "",
-          collapsed: false,
+          collapsed: true,
           children: {
             "components": {
               type: "directory",
               content: "",
-              collapsed: false,
+              collapsed: true,
               children: {
                 "Button.tsx": {
                   type: "file",
@@ -164,7 +164,7 @@ describe("VirtualIDE", () => {
             "utils": {
               type: "directory",
               content: "",
-              collapsed: false,
+              collapsed: true,
               children: {}
             }
           }
@@ -181,7 +181,7 @@ describe("VirtualIDE", () => {
         "dist": {
           type: "directory",
           content: "",
-          collapsed: false,
+          collapsed: true,
           children: {}
         }
       });

@@ -32,7 +32,7 @@ describe("VirtualIDE", () => {
                             'src': {
                                 type: 'directory',
                                 content: '',
-                                collapsed: false,
+                                collapsed: true,
                                 children: {
                                     'index.js': {
                                         type: 'file',

@@ -74,7 +74,7 @@
 //                     fileStructure: {
 //                         "src": {
 //                             children: {},
-//                             collapsed: false,
+//                             collapsed: true,
 //                             type: "directory",
 //                             content: ""
 //                         }

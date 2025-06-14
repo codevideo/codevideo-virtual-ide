@@ -34,7 +34,7 @@ describe("VirtualIDE", () => {
         "src": {
           type: "directory",
           content: "",
-          collapsed: false,
+          collapsed: true,
           children: {}
         }
       });
@@ -89,7 +89,7 @@ describe("VirtualIDE", () => {
         "src": {
           type: "directory",
           content: "",
-          collapsed: false,
+          collapsed: true,
           children: {
             "index.ts": {
               type: "file",
@@ -159,7 +159,7 @@ describe("VirtualIDE", () => {
         "src": {
           type: "directory",
           content: "",
-          collapsed: false,
+          collapsed: true,
           children: {
             "index.ts": {
               type: "file",

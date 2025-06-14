@@ -34,7 +34,7 @@ describe("VirtualIDE", () => {
         "src": {
           type: "directory",
           content: "",
-          collapsed: false,
+          collapsed: true,
           children: {}
         }
       });
@@ -86,12 +86,12 @@ describe("VirtualIDE", () => {
         "src": {
           type: "directory",
           content: "",
-          collapsed: false,
+          collapsed: true,
           children: {
             "dev": {
               type: "directory",
               content: "",
-              collapsed: false,
+              collapsed: true,
               children: {}
             }
           }
@@ -143,12 +143,12 @@ describe("VirtualIDE", () => {
         "src": {
           type: "directory",
           content: "",
-          collapsed: false,
+          collapsed: true,
           children: {
             "dev": {
               type: "directory",
               content: "",
-              collapsed: false,
+              collapsed: true,
               children: {}
             }
           }
@@ -156,7 +156,7 @@ describe("VirtualIDE", () => {
         "lib": {
           type: "directory",
           content: "",
-          collapsed: false,
+          collapsed: true,
           children: {}
         }
       });

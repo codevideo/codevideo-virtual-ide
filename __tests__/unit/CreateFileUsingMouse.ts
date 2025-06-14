@@ -93,7 +93,7 @@ describe("VirtualIDE", () => {
         "src": {
           type: "directory",
           content: "",
-          collapsed: false,
+          collapsed: true,
           children: {
             "hello-world.js": {
               caretPosition: {
