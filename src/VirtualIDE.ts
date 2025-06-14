@@ -225,7 +225,13 @@ export class VirtualIDE {
       const filename = action.value;
       const editorIndex = this.virtualEditors.findIndex((editor) => editor.fileName === filename);
       if (editorIndex === -1) {
-        this.addVirtualEditor(filename, new VirtualEditor([], undefined, this.verbose));
+        // check if we have initial code lines - could be a file that has already some content
+        const initialCodeLines = this.virtualFileExplorer.getFileContents(filename).split('\n');
+        this.addVirtualEditor(filename, new VirtualEditor(initialCodeLines, undefined, this.verbose));
+
+        // if we had initial code lines, we also need to set the editor as saved
+        this.virtualEditors[this.virtualEditors.length - 1].virtualEditor.applyAction({ name: 'editor-save', value: "1" });
+
         this.currentEditorIndex = this.virtualEditors.length - 1;
       } else {
         this.currentEditorIndex = editorIndex;
@@ -312,6 +318,7 @@ export class VirtualIDE {
           this.currentEditorIndex = this.virtualEditors.length - 1;
         } else {
           // editor already in an editor tab, so we just need to set the current editor index
+          // TODO: this probably shouldn't exist since we are always creating a new editor when typing enter on the new file input...
           this.currentEditorIndex = editorIndex;
         }
         // in IDEs like visual studio code, the file is already in a saved state even though it is opened,
