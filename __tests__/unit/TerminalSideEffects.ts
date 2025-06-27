@@ -1,9 +1,10 @@
+import { ILesson } from "@fullstackcraftllc/codevideo-types";
 import { VirtualIDE } from "../../src/VirtualIDE";
 
 describe("VirtualIDE", () => {
     describe("cross domain interactions with file explorer", () => {
         it("should have a correct buffer state at initialization and after various actions", () => {
-            const virtualIDE = new VirtualIDE(undefined, undefined);
+            const virtualIDE = new VirtualIDE();
             virtualIDE.applyAction({ name: "terminal-open", value: "1" });
             const virtualTerminal = virtualIDE.virtualTerminals[0];
             expect(virtualTerminal.getBuffer()).toEqual([
@@ -48,8 +49,7 @@ describe("VirtualIDE", () => {
                 "[codevideo.studio] [~] /> ",
             ]);
             // cross domain check - the file explorer should now have a test directory
-            const virtualFileExplorer = virtualIDE.virtualFileExplorer;
-            expect(virtualFileExplorer.getLsString()).toEqual("test");
+            expect(virtualIDE.getLsString()).toEqual("test");
 
             // now with ls and enter we should see the test directory
             virtualIDE.applyAction({ name: "terminal-type", value: "ls" });
@@ -199,5 +199,100 @@ describe("VirtualIDE", () => {
                 "[codevideo.studio] [~] /> ",
             ]);
         });
+
+        it("doesn't list '~' as a directory when using ls", () => {
+            const virtualIDE = new VirtualIDE();
+            virtualIDE.applyAction({ name: "terminal-open", value: "1" });
+            const virtualTerminal = virtualIDE.virtualTerminals[0];
+            virtualIDE.applyAction({ name: "file-explorer-create-file", value: "test.py" });
+            virtualIDE.applyAction({ name: "file-explorer-set-file-contents", value: "test" });
+            virtualIDE.applyAction({ name: "terminal-type", value: "mkdir python" });
+            virtualIDE.applyAction({ name: "terminal-enter", value: "1" });
+            virtualIDE.applyAction({ name: "terminal-type", value: "mv test.py python/test.py" });
+            virtualIDE.applyAction({ name: "terminal-enter", value: "1" });
+            virtualIDE.applyAction({ name: "terminal-type", value: "ls" });
+            virtualIDE.applyAction({ name: "terminal-enter", value: "1" });
+            expect(virtualTerminal.getBuffer()).toEqual([
+                "[codevideo.studio] [~] /> mkdir python",
+                "[codevideo.studio] [~] /> mv test.py python/test.py",
+                "[codevideo.studio] [~] /> ls",
+                "python",
+                "[codevideo.studio] [~] /> ",
+            ]);
+        });
+
+        it("doesn't list '~' as a directory when using ls", () => {
+            const virtualIDE = new VirtualIDE();
+            virtualIDE.applyAction({ name: "terminal-open", value: "1" });
+            const virtualTerminal = virtualIDE.virtualTerminals[0];
+            virtualIDE.applyAction({ name: "file-explorer-create-file", value: "test.py" });
+            virtualIDE.applyAction({ name: "file-explorer-set-file-contents", value: "test" });
+            virtualIDE.applyAction({ name: "terminal-type", value: "mkdir python" });
+            virtualIDE.applyAction({ name: "terminal-enter", value: "1" });
+            virtualIDE.applyAction({ name: "terminal-type", value: "mv test.py python/test.py" });
+            virtualIDE.applyAction({ name: "terminal-enter", value: "1" });
+            virtualIDE.applyAction({ name: "terminal-type", value: "mkdir typescript" });
+            virtualIDE.applyAction({ name: "terminal-enter", value: "1" });
+            virtualIDE.applyAction({ name: "terminal-type", value: "cd typescript" });
+            virtualIDE.applyAction({ name: "terminal-enter", value: "1" });
+            virtualIDE.applyAction({ name: "mouse-move-file-explorer-folder", value: "typescript" });
+            virtualIDE.applyAction({ name: "mouse-right-click", value: "1" });
+            virtualIDE.applyAction({ name: "mouse-move-file-explorer-folder-context-menu-new-file", value: "1" });
+            virtualIDE.applyAction({ name: "mouse-left-click", value: "1" });
+            virtualIDE.applyAction({ name: "file-explorer-type-new-file-input", value: "test.ts" });
+            virtualIDE.applyAction({ name: "file-explorer-enter-new-file-input", value: "1" });
+            virtualIDE.applyAction({ name: "terminal-type", value: "ls" });
+            virtualIDE.applyAction({ name: "terminal-enter", value: "1" });
+
+            // we expect in the file explorer snapshot to see the test.py file in the python directory
+            // and the test.ts file in the typescript directory
+            expect(virtualIDE.virtualFileExplorer.getCurrentFileStructure()).toEqual({
+                "python": {
+                    "type": "directory",
+                    "content": "",
+                    "collapsed": true,
+                    "children": {
+                        "test.py": {
+                            "type": "file",
+                            "content": "",
+                            "language": "py",
+                            "caretPosition": {
+                                "row": 0,
+                                "col": 0
+                            }
+                        }
+                    }
+                },
+                "typescript": {
+                    "type": "directory",
+                    "content": "",
+                    "collapsed": true,
+                    "children": {
+                        "test.ts": {
+                            "type": "file",
+                            "content": "",
+                            "language": "ts",
+                            "caretPosition": {
+                                "row": 0,
+                                "col": 0
+                            }
+                        }
+                    }
+                }
+            });
+
+
+            // we expect to only see the test.ts file in the typescript directory
+            expect(virtualTerminal.getBuffer()).toEqual([
+                "[codevideo.studio] [~] /> mkdir python",
+                "[codevideo.studio] [~] /> mv test.py python/test.py",
+                "[codevideo.studio] [~] /> mkdir typescript",
+                "[codevideo.studio] [~] /> cd typescript",
+                "[codevideo.studio] [~/typescript] /> ls",
+                "test.ts",
+                "[codevideo.studio] [~/typescript] /> ",
+            ]);
+        });
+
     });
 });

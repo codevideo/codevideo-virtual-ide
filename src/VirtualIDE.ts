@@ -68,6 +68,16 @@ export class VirtualIDE {
   private verbose: boolean = false;
   private logs: Array<IVirtualLayerLog> = [];
 
+  /**
+   * Global present working directory for terminal display (uses "~" for root, subdirectories as "~/folder/subfolder")
+   */
+  private terminalPwd: string = "~";
+
+  /**
+   * Flag to track if we're currently in a lesson reconstruction process
+   */
+  private isReconstituting: boolean = false;
+
   // TODO: modify getOpenFiles in VirtualFileExplorer to return a list of FileItems, not strings
   //private openFiles: Array<FileItem> = [];
   private virtualAuthors: Array<VirtualAuthor> = [];
@@ -84,6 +94,9 @@ export class VirtualIDE {
     this.virtualEditors = [];
     this.virtualTerminals = [];
     this.virtualAuthors = [];
+
+    // Initialize Terminal PWD to root directory
+    this.terminalPwd = "~";
 
     // if project is defined, reconstitute the virtual IDE from the project at the given action index
     // if given action index is not defined, reconstitute the virtual IDE from the project at action index 0
@@ -143,12 +156,18 @@ export class VirtualIDE {
     if (this.verbose) console.log("VirtualIDE: Reconstitution: fileExplorerSnapshot object: ", JSON.stringify(courseSnapshot.fileExplorerSnapshot));
     this.virtualFileExplorer.applySnapshot(courseSnapshot.fileExplorerSnapshot);
 
+    // TODO: set Terminal PWD?
+    // this.terminalPwd = fileExplorerPwd === "" ? "~" : fileExplorerPwd;
+
     // editor snapshot
-    courseSnapshot.editorSnapshot.editors.forEach((editor) => {
+    courseSnapshot.editorSnapshot.editors.forEach((editor, index) => {
       const virtualEditor = new VirtualEditor([], undefined, this.verbose);
       if (this.verbose) console.log("VirtualIDE: Reconstitution: editor object: ", JSON.stringify(editor));
       virtualEditor.setValuesFromEditor(editor);
       this.addVirtualEditor(editor.filename, virtualEditor);
+      if (editor.isActive) {
+        this.currentEditorIndex = index;
+      }
     })
 
     // terminal snapshot
@@ -179,6 +198,9 @@ export class VirtualIDE {
     if (isFileExplorerAction(action)) {
       if (this.verbose) console.log("VirtualIDE: Applying FILE EXPLORER ACTION", action);
       this.logs.push({ source: 'virtual-ide', type: 'info', message: `Applying FILE EXPLORER action: ${action.name}`, timestamp: Date.now() });
+
+      // Convert terminal paths to file explorer paths for actions that contain file paths
+      // const convertedAction = this.convertFileExplorerActionPaths(action);
       this.virtualFileExplorer.applyAction(action);
     } else if (isEditorAction(action)) {
       if (this.verbose) console.log("VirtualIDE: Applying EDITOR action", action);
@@ -249,12 +271,21 @@ export class VirtualIDE {
       // console.log("EXECUTE EDITOR SAVE SIDE EFFECTS: this.currentEditorIndex", this.currentEditorIndex)
       // console.log("EXECUTE EDITOR SAVE SIDE EFFECTS: this.virtualEditors.length", this.virtualEditors.length)
       const editor = this.virtualEditors[this.currentEditorIndex];
-      const filename = editor.fileName;
+      let filename = editor.fileName;
       const contents = editor.virtualEditor.getCode();
       const caretPosition = editor.virtualEditor.getCurrentCaretPosition();
+
+      // Convert terminal format path to file explorer format
+      const fileExplorerPath = this.convertTerminalPathToFileExplorerPath(filename);
+
       if (this.verbose) console.log(`VirtualIDE: Saving file: <${filename}> with contents: <${contents}>, caret position: <${caretPosition}>`);
-      this.virtualFileExplorer.applyAction({ name: "file-explorer-set-file-contents", value: `${filename}${advancedCommandValueSeparator}${contents}` });
-      this.virtualFileExplorer.applyAction({ name: "file-explorer-set-file-caret-position", value: `${filename}${advancedCommandValueSeparator}${caretPosition.row}${advancedCommandValueSeparator}${caretPosition.col}` });
+      this.virtualFileExplorer.applyAction({ name: "file-explorer-set-file-contents", value: `${fileExplorerPath}${advancedCommandValueSeparator}${contents}` });
+
+      // Only update file explorer caret position if this is not during lesson reconstruction
+      // During lesson reconstruction, files should maintain their default (0,0) positions unless explicitly set
+      if (!this.isReconstituting) {
+        this.virtualFileExplorer.applyAction({ name: "file-explorer-set-file-caret-position", value: `${fileExplorerPath}${advancedCommandValueSeparator}${caretPosition.row}${advancedCommandValueSeparator}${caretPosition.col}` });
+      }
     }
 
     // and yet another super special side effect - on file-explorer-close-file we need to close the editor
@@ -289,11 +320,21 @@ export class VirtualIDE {
       const fileNameInput = this.virtualFileExplorer.getCurrentFileExplorerSnapshot().newFileInputValue
       const parentPath = this.virtualFileExplorer.getCurrentFileExplorerSnapshot().newFileParentPath;
 
+      // Validate input - prevent undefined or empty values
+      if (!fileNameInput || typeof fileNameInput !== 'string' || fileNameInput.trim() === '') {
+        if (this.verbose) console.warn(`VirtualIDE: Invalid file name input: ${fileNameInput}`);
+        this.logs.push({ source: 'virtual-ide', type: 'warning', message: `Invalid file name input: ${fileNameInput}`, timestamp: Date.now() });
+        return;
+      }
+
       // Construct the full path, considering the parent path
-      let fileName = fileNameInput;
+      let fileName = fileNameInput.trim();
       if (parentPath && !fileName.includes('/')) {
         fileName = `${parentPath}/${fileName}`;
       }
+
+      if (this.verbose) console.log(`VirtualIDE: Entered new file input: ${fileName}`);
+      if (this.verbose) console.log(`VirtualIDE: Parent path for new file input: ${parentPath}`);
 
       // check if the file already exists
       const fileExists = this.virtualFileExplorer.getFiles().includes(fileName);
@@ -302,8 +343,6 @@ export class VirtualIDE {
         if (this.verbose) console.warn(`VirtualIDE: File already exists: ${fileName}`);
         this.logs.push({ source: 'virtual-ide', type: 'warning', message: `File already exists: ${fileName}`, timestamp: Date.now() });
       } else {
-        // if it doesn't, create the file, hide the input, clear the input, and open the file
-        // console.log("FILE IS ", fileName)
         this.virtualFileExplorer.applyAction({ name: 'file-explorer-create-file', value: fileName })
         this.virtualFileExplorer.applyAction({ name: 'file-explorer-hide-new-file-input', value: "1" })
         this.virtualFileExplorer.applyAction({ name: 'file-explorer-clear-new-file-input', value: "1" })
@@ -432,7 +471,7 @@ export class VirtualIDE {
       const editorIndex = this.virtualEditors.findIndex((editor) => editor.fileName === filename);
       if (editorIndex === -1) {
         // editor was not found in editor tabs, so we need to create it and set the current editor index
-        
+
         // check if we have initial code lines - could be a file that has already some content
         const initialCodeLines = this.virtualFileExplorer.getFileContents(filename).split('\n');
         this.addVirtualEditor(filename, new VirtualEditor(initialCodeLines, undefined, this.verbose));
@@ -560,9 +599,8 @@ export class VirtualIDE {
 
     // ls
     if (parts.length === 1 && lastCommand === "ls") {
-      // use filesystem to list files - could support flags here
       // getLsString considers the present working directory internally
-      const lsString = this.virtualFileExplorer.getLsString();
+      const lsString = this.getLsString();
       if (this.verbose) console.log(`VirtualIDE: ls output: ${lsString}`);
       this.logs.push({ source: 'virtual-ide', type: 'info', message: `ls output: ${lsString}`, timestamp: Date.now() });
       if (lsString.length === 0) {
@@ -585,16 +623,16 @@ export class VirtualIDE {
       return;
     }
 
-    // this pwd is the "GUI" version - file explorer doesn't use "~" internally but needs it for the relative paths
-    let pwd = this.virtualFileExplorer.getPresentWorkingDirectory() === "" ? "~" : this.virtualFileExplorer.getPresentWorkingDirectory();
+    // Get current PWD using our centralized method
+    const terminalPwd = this.getTerminalPwd();
 
-    if (this.verbose) console.log(`VirtualIDE: Present working directory: ${pwd}`);
-    this.logs.push({ source: 'virtual-ide', type: 'info', message: `Present working directory: ${pwd}`, timestamp: Date.now() });
+    if (this.verbose) console.log(`VirtualIDE: TERMINAL present working directory displayed as: ${terminalPwd}`);
+    this.logs.push({ source: 'virtual-ide', type: 'info', message: `TERMINAL present working directory displayed as: ${terminalPwd}`, timestamp: Date.now() });
 
     // pwd
     if (parts.length === 1 && lastCommand === "pwd") {
       // use filesystem to list the current path
-      terminal.applyAction({ name: "terminal-set-output", value: pwd });
+      terminal.applyAction({ name: "terminal-set-output", value: terminalPwd });
       terminal.applyAction({ name: "terminal-set-output", value: prompt });
       return;
     }
@@ -603,68 +641,53 @@ export class VirtualIDE {
 
     // touch - make file and leave a fresh prompt
     if (parts.length == 2 && commandName === "touch") {
-      if (this.verbose) console.log(`VirtualIDE: Creating file: ${parts[1]}`);
-      this.logs.push({ source: 'virtual-ide', type: 'info', message: `Creating file: ${parts[1]}`, timestamp: Date.now() });
       // use filesystem to create a file
-      const newFile = parts[1]
-      const fullFilePath = pwd + "/" + newFile;
-      if (this.verbose) console.log(`VirtualIDE: Creating file: ${fullFilePath}`);
-      this.logs.push({ source: 'virtual-ide', type: 'info', message: `Creating file: ${fullFilePath}`, timestamp: Date.now() });
-      this.virtualFileExplorer.applyAction({ name: "file-explorer-create-file", value: fullFilePath });
+      const relativeFile = parts[1]
+      // Convert to absolute path based on current terminal PWD
+      const absoluteFile = this.convertRelativeToAbsolutePath(relativeFile);
+      if (this.verbose) console.log(`VirtualIDE: Creating file: ${absoluteFile}`);
+      this.logs.push({ source: 'virtual-ide', type: 'info', message: `Creating file: ${absoluteFile}`, timestamp: Date.now() });
+      this.virtualFileExplorer.applyAction({ name: "file-explorer-create-file", value: absoluteFile });
       terminal.applyAction({ name: "terminal-set-output", value: prompt });
       return;
     }
 
     // mkdir - make directory and leave a fresh prompt
     if (parts.length == 2 && commandName === "mkdir") {
-      if (this.verbose) console.log(`VirtualIDE: Creating directory: ${parts[1]}`);
-      this.logs.push({ source: 'virtual-ide', type: 'info', message: `Creating directory: ${parts[1]}`, timestamp: Date.now() });
       // use filesystem to create a directory
-      const newDir = parts[1]
-      this.virtualFileExplorer.applyAction({ name: "file-explorer-create-folder", value: newDir });
+      const relativeDir = parts[1]
+      // Convert to absolute path based on current terminal PWD
+      const absoluteDir = this.convertRelativeToAbsolutePath(relativeDir);
+      if (this.verbose) console.log(`VirtualIDE: Creating directory: ${absoluteDir}`);
+      this.logs.push({ source: 'virtual-ide', type: 'info', message: `Creating directory: ${absoluteDir}`, timestamp: Date.now() });
+      this.virtualFileExplorer.applyAction({ name: "file-explorer-create-folder", value: absoluteDir });
       terminal.applyAction({ name: "terminal-set-output", value: prompt });
       return;
     }
 
     // cd
     if (parts.length == 2 && commandName === "cd") {
-      if (this.verbose) console.log(`VirtualIDE: Changing directory to: ${parts[1]}`);
-      this.logs.push({ source: 'virtual-ide', type: 'info', message: `Changing directory to: ${parts[1]}`, timestamp: Date.now() });
       const targetDir = parts[1];
-      // no op if they try to .. already in "~"
-      if (targetDir === ".." && pwd === "~") {
-        terminal.applyAction({ name: "terminal-set-output", value: prompt });
-        return;
+      if (this.verbose) console.log(`VirtualIDE: Changing directory to: ${targetDir}`);
+      this.logs.push({ source: 'virtual-ide', type: 'info', message: `Changing directory to: ${targetDir}`, timestamp: Date.now() });
+
+      // Use our centralized changeDirectory method
+      const success = this.changeDirectory(targetDir);
+
+      if (!success) {
+        if (targetDir === ".." && this.getTerminalPwd() === "~") {
+          // Already at root, just show fresh prompt
+          terminal.applyAction({ name: "terminal-set-output", value: prompt });
+          return;
+        } else {
+          // Likely tried to cd into a file
+          terminal.applyAction({ name: "terminal-set-output", value: `cd: not a directory: ${targetDir}` });
+          terminal.applyAction({ name: "terminal-set-output", value: prompt });
+          return;
+        }
       }
 
-      // no op if they try to cd into a file (use regex with letter'.'letter)
-      const regexp = /[a-zA-Z0-9]\.[a-zA-Z0-9]/;
-      if (regexp.test(targetDir)) {
-        terminal.applyAction({ name: "terminal-set-output", value: `cd: not a directory: ${targetDir}` });
-        terminal.applyAction({ name: "terminal-set-output", value: prompt });
-        return;
-      }
-
-      // for 'changing directory' in codevideo, we just change the prompt of the terminal
-      // update the pwd
-      if (targetDir === "..") {
-        // go up one level
-        const parts = pwd.split("/");
-        parts.pop();
-        pwd = parts.join("/");
-        if (this.verbose) console.log(`VirtualIDE: Changing directory to: ${pwd}`);
-        this.logs.push({ source: 'virtual-ide', type: 'info', message: `Changing directory to: ${pwd}`, timestamp: Date.now() });
-      } else {
-        // go to a specific directory
-        pwd = pwd + "/" + targetDir;
-        if (this.verbose) console.log(`VirtualIDE: Changing directory to: ${pwd}`);
-        this.logs.push({ source: 'virtual-ide', type: 'info', message: `Changing directory to: ${pwd}`, timestamp: Date.now() });
-      }
-
-      // update pwd in the file explorer
-      this.virtualFileExplorer.applyAction({ name: "file-explorer-set-present-working-directory", value: pwd });
-
-      terminal.applyAction({ name: "terminal-set-present-working-directory", value: pwd });
+      // Directory change was successful, update terminal prompt
       const newPrompt = this.virtualTerminals[this.currentTerminalIndex].getPrompt();
       terminal.applyAction({ name: "terminal-set-output", value: newPrompt });
       return;
@@ -690,11 +713,11 @@ export class VirtualIDE {
     // cat
     if (parts.length == 2 && commandName === "cat") {
       // use filesystem to read a file
-      const file = parts[1]
-      const absoluteFilePath = pwd + "/" + file;
-      if (this.verbose) console.log(`VirtualIDE: Reading file: ${absoluteFilePath}`);
-      this.logs.push({ source: 'virtual-ide', type: 'info', message: `Reading file: ${absoluteFilePath}`, timestamp: Date.now() });
-      const fileContents = this.virtualFileExplorer.getFileContents(absoluteFilePath);
+      const relativeFile = parts[1]
+      const absoluteFile = this.convertRelativeToAbsolutePath(relativeFile);
+      if (this.verbose) console.log(`VirtualIDE: Reading file: ${absoluteFile}`);
+      this.logs.push({ source: 'virtual-ide', type: 'info', message: `Reading file: ${absoluteFile}`, timestamp: Date.now() });
+      const fileContents = this.virtualFileExplorer.getFileContents(this.convertTerminalPathToFileExplorerPath(absoluteFile));
       // cat only outputs the file content if it is not empty, otherwise no op
       if (fileContents !== "") {
         terminal.applyAction({ name: "terminal-set-output", value: fileContents });
@@ -708,13 +731,16 @@ export class VirtualIDE {
     // cp
     if (parts.length == 3 && commandName === "cp") {
       // use filesystem to copy a file
-      const from = parts[1]
-      const absoluteFromPath = pwd + "/" + from;
-      const to = parts[2]
-      const absoluteToPath = pwd + "/" + to;
-      if (this.verbose) console.log(`VirtualIDE: Copying file from: ${absoluteFromPath} to: ${absoluteToPath}`);
-      this.logs.push({ source: 'virtual-ide', type: 'info', message: `Copying file from: ${absoluteFromPath} to: ${absoluteToPath}`, timestamp: Date.now() });
-      this.virtualFileExplorer.applyAction({ name: "file-explorer-copy-file", value: `${absoluteFromPath}${advancedCommandValueSeparator}${absoluteToPath}` });
+      const relativeFrom = parts[1]
+      const relativeTo = parts[2]
+      const absoluteFrom = this.convertRelativeToAbsolutePath(relativeFrom);
+      const absoluteTo = this.convertRelativeToAbsolutePath(relativeTo);
+      if (this.verbose) console.log(`VirtualIDE: Copying file from: ${absoluteFrom} to: ${absoluteTo}`);
+      this.logs.push({ source: 'virtual-ide', type: 'info', message: `Copying file from: ${absoluteFrom} to: ${absoluteTo}`, timestamp: Date.now() });
+      // Convert to file explorer format for the action
+      const fileExplorerFrom = this.convertTerminalPathToFileExplorerPath(absoluteFrom);
+      const fileExplorerTo = this.convertTerminalPathToFileExplorerPath(absoluteTo);
+      this.virtualFileExplorer.applyAction({ name: "file-explorer-copy-file", value: `${fileExplorerFrom}${advancedCommandValueSeparator}${fileExplorerTo}` });
       terminal.applyAction({ name: "terminal-set-output", value: prompt });
       return;
     }
@@ -722,13 +748,16 @@ export class VirtualIDE {
     // mv
     if (parts.length == 3 && commandName === "mv") {
       // use filesystem to move a file
-      const from = parts[1]
-      const absoluteFromPath = pwd + "/" + from;
-      const to = parts[2]
-      const absoluteToPath = pwd + "/" + to;
-      if (this.verbose) console.log(`VirtualIDE: Moving file from: ${absoluteFromPath} to: ${absoluteToPath}`);
-      this.logs.push({ source: 'virtual-ide', type: 'info', message: `Moving file from: ${absoluteFromPath} to: ${absoluteToPath}`, timestamp: Date.now() });
-      this.virtualFileExplorer.applyAction({ name: "file-explorer-move-file", value: `${absoluteFromPath}${advancedCommandValueSeparator}${absoluteToPath}` });
+      const relativeFrom = parts[1]
+      const relativeTo = parts[2]
+      const absoluteFrom = this.convertRelativeToAbsolutePath(relativeFrom);
+      const absoluteTo = this.convertRelativeToAbsolutePath(relativeTo);
+      if (this.verbose) console.log(`VirtualIDE: Moving file from: ${absoluteFrom} to: ${absoluteTo}`);
+      this.logs.push({ source: 'virtual-ide', type: 'info', message: `Moving file from: ${absoluteFrom} to: ${absoluteTo}`, timestamp: Date.now() });
+      // Convert to file explorer format for the action
+      const fileExplorerFrom = this.convertTerminalPathToFileExplorerPath(absoluteFrom);
+      const fileExplorerTo = this.convertTerminalPathToFileExplorerPath(absoluteTo);
+      this.virtualFileExplorer.applyAction({ name: "file-explorer-move-file", value: `${fileExplorerFrom}${advancedCommandValueSeparator}${fileExplorerTo}` });
       terminal.applyAction({ name: "terminal-set-output", value: prompt });
       return;
     }
@@ -784,6 +813,19 @@ export class VirtualIDE {
     const activeEditor = this.getActiveEditorSafely()
     return {
       editors: this.virtualEditors.map((editor) => {
+        // const virtualEditorObject = this.virtualEditors[this.currentEditorIndex];
+
+        // if (!virtualEditorObject) {
+        //   return {
+        //     isActive: false,
+        //     filename: '',
+        //     content: '',
+        //     caretPosition: { row: 0, col: 0 },
+        //     highlightCoordinates: null,
+        //     isSaved: true,
+        //   }
+        // }
+
         return {
           isActive: editor.fileName === this.virtualEditors[this.currentEditorIndex].fileName,
           filename: editor.fileName,
@@ -872,6 +914,92 @@ export class VirtualIDE {
     return this.virtualFileExplorer.getFullFilePathsAndContents();
   }
 
+  /**
+   * Gets the current present working directory for terminal display ("~" for root).
+   * @returns The terminal PWD.
+   */
+  getTerminalPwd(): string {
+    return this.terminalPwd;
+  }
+
+  /**
+   * Convert a terminal format path to file explorer format
+   * Terminal format: "~" for root, "~/folder" for subdirectories
+   * File explorer format: "" for root, "folder" for subdirectories
+   */
+  private convertTerminalPathToFileExplorerPath(terminalPath: string): string {
+    if (terminalPath === "~") {
+      return "";
+    }
+    if (terminalPath.startsWith("~/")) {
+      return terminalPath.slice(2);
+    }
+    // If path doesn't start with ~, assume it's already in file explorer format
+    return terminalPath;
+  }
+
+  /**
+   * Sets the present working directory and syncs both file explorer and terminal representations.
+   * @param newPwd The new PWD in terminal format ("~" for root, "~/folder" for subdirectories)
+   */
+  private setPwd(newPwd: string): void {
+    this.terminalPwd = newPwd;
+
+    // Update terminal PWD
+    if (this.virtualTerminals.length > 0) {
+      this.virtualTerminals[this.currentTerminalIndex].applyAction({
+        name: "terminal-set-present-working-directory",
+        value: this.terminalPwd
+      });
+    }
+
+    if (this.verbose) {
+      console.log(`VirtualIDE: PWD updated - Terminal: "${this.terminalPwd}"`);
+    }
+    this.logs.push({
+      source: 'virtual-ide',
+      type: 'info',
+      message: `PWD updated - Terminal: "${this.terminalPwd}"`,
+      timestamp: Date.now()
+    });
+  }
+
+  /**
+   * Changes directory relative to current PWD.
+   * @param targetDir The target directory ("." for current, ".." for parent, or directory name)
+   * @returns true if directory change was successful, false otherwise
+   */
+  private changeDirectory(targetDir: string): boolean {
+    if (targetDir === ".") {
+      // No change needed for current directory
+      return true;
+    }
+
+    if (targetDir === "..") {
+      // Go up one level
+      if (this.terminalPwd === "~") {
+        // Already at root, can't go up
+        return false;
+      }
+      const parts = this.terminalPwd.split("/");
+      parts.pop();
+      const newPwd = parts.length === 1 ? "~" : parts.join("/");
+      this.setPwd(newPwd);
+      return true;
+    }
+
+    // Check if target is a file (contains extension pattern)
+    const filePattern = /[a-zA-Z0-9]\.[a-zA-Z0-9]/;
+    if (filePattern.test(targetDir)) {
+      return false; // Can't cd into a file
+    }
+
+    // Go to specific directory
+    const newPwd = this.terminalPwd + "/" + targetDir;
+    this.setPwd(newPwd);
+    return true;
+  }
+
   private getActiveEditorSafely(): VirtualEditor | undefined {
     if (this.virtualEditors.length === 0) {
       return undefined;
@@ -880,6 +1008,10 @@ export class VirtualIDE {
       return undefined;
     }
     // TODO: this anyway is sometimes undefined? how?
+    // const virtualEditorObject = this.virtualEditors[this.currentEditorIndex];
+    // if (!virtualEditorObject) {
+    //   return undefined;
+    // }
     return this.virtualEditors[this.currentEditorIndex].virtualEditor;
   }
 
@@ -915,13 +1047,15 @@ export class VirtualIDE {
       allActions.push(...lesson.actions);
     }
 
-    const actionsToApply = allActions.slice(0, actionIndex+1);
+    const actionsToApply = allActions.slice(0, actionIndex + 1);
     if (this.verbose) console.log(`VirtualIDE: applying ${actionsToApply.length} actions`);
     this.applyActions(actionsToApply);
   }
 
   private reconstituteFromLessonAtActionIndex(lesson: ILesson, actionIndex?: number): void {
     if (this.verbose) console.log(`VirtualIDE: reconstituting from lesson at action index: ${actionIndex}`);
+    this.isReconstituting = true;
+
     // if action index is not provided, set it to 0
     if (actionIndex === undefined) {
       actionIndex = 0;
@@ -935,13 +1069,17 @@ export class VirtualIDE {
       this.applyCourseSnapshot(initialSnapshot);
     }
 
-    const actionsToApply = lesson.actions.slice(0, actionIndex+1);
+    const actionsToApply = lesson.actions.slice(0, actionIndex + 1);
     if (this.verbose) console.log(`VirtualIDE: applying ${actionsToApply.length} actions`);
     this.applyActions(actionsToApply);
+
+    this.isReconstituting = false;
   }
 
   private reconstituteFromActionsAtActionIndex(actions: IAction[], actionIndex?: number): void {
     if (this.verbose) console.log(`VirtualIDE: reconstituting from actions at action index: ${actionIndex}`);
+    this.isReconstituting = true;
+
     // if action index is not provided, set it to 0
     if (actionIndex === undefined) {
       actionIndex = 0;
@@ -949,8 +1087,136 @@ export class VirtualIDE {
 
     // **(note with pure action input, there is no snapshot to start from, so we just apply the actions)**
 
-    const actionsToApply = actions.slice(0, actionIndex+1);
+    const actionsToApply = actions.slice(0, actionIndex + 1);
     if (this.verbose) console.log(`VirtualIDE: applying ${actionsToApply.length} actions`);
     this.applyActions(actionsToApply);
+
+    this.isReconstituting = false;
+  }  /**
+   * Gets an 'ls' formatted list of files in the current terminal directory
+   * @returns String of folders and files in the current directory in alphabetical order
+   */
+  getLsString(): string {
+    // Get all file entries from file explorer
+    const allFileEntries = this.virtualFileExplorer.getFullFilePathsAndContents();
+    
+    // Convert terminal PWD to file explorer format for filtering
+    const currentDirPath = this.convertTerminalPathToFileExplorerPath(this.terminalPwd);
+
+    if (this.verbose) {
+      console.log('getLsString - Terminal PWD:', this.terminalPwd);
+      console.log('getLsString - File explorer path:', currentDirPath);
+      console.log('getLsString - All file entries:', allFileEntries);
+    }
+
+    // Get all file paths
+    const allPaths = allFileEntries.map(entry => entry.path);
+
+    // Also need to include directories that aren't explicitly files
+    // Let's get the file structure and extract directory paths
+    const fileStructure = this.virtualFileExplorer.getCurrentFileStructure();
+    const allDirectories = this.extractDirectoryPaths(fileStructure, "");
+
+    if (this.verbose) {
+      console.log('getLsString - All directories:', allDirectories);
+    }
+
+    // Combine files and directories
+    const allItems = [...allPaths, ...allDirectories];
+
+    // Filter items that are in the current directory
+    const currentDirItems = allItems.filter(itemPath => {
+      // Normalize item path by removing leading slash if present
+      const normalizedPath = itemPath.startsWith('/') ? itemPath.slice(1) : itemPath;
+      
+      if (currentDirPath === "") {
+        // At root directory - show items that don't contain '/' after removing leading slash
+        return !normalizedPath.includes('/');
+      } else {
+        // In subdirectory - show items that start with current path and are one level deeper
+        if (!normalizedPath.startsWith(currentDirPath + '/')) {
+          return false;
+        }
+
+        // Remove the current directory prefix and check if it's a direct child
+        const relativePath = normalizedPath.substring(currentDirPath.length + 1);
+        return !relativePath.includes('/'); // No further slashes means direct child
+      }
+    });
+
+    if (this.verbose) {
+      console.log('getLsString - Filtered items for current directory:', currentDirItems);
+    }
+
+    if (currentDirItems.length === 0) {
+      return "";
+    }
+
+    // Format the output - remove the current directory prefix and sort alphabetically
+    const displayNames = currentDirItems.map(itemPath => {
+      // Normalize item path by removing leading slash if present
+      const normalizedPath = itemPath.startsWith('/') ? itemPath.slice(1) : itemPath;
+      
+      if (currentDirPath === "") {
+        return normalizedPath; // At root, show normalized name (without leading slash)
+      } else {
+        return normalizedPath.substring(currentDirPath.length + 1); // Remove current dir prefix
+      }
+    }).sort();
+
+    // Remove duplicates (in case a path appears as both file and directory)
+    const uniqueDisplayNames = [...new Set(displayNames)];
+
+    if (this.verbose) {
+      console.log('getLsString - Final display names:', uniqueDisplayNames);
+    }
+
+    // Join with newlines but no trailing newline
+    return uniqueDisplayNames.join('\n');
+  }
+
+  /**
+   * Recursively extracts directory paths from a file structure
+   * @param structure The file structure to extract from
+   * @param currentPath The current path prefix
+   * @returns Array of directory paths
+   */
+  private extractDirectoryPaths(structure: any, currentPath: string): string[] {
+    const directories: string[] = [];
+    
+    for (const [name, item] of Object.entries(structure)) {
+      if (typeof item === 'object' && item !== null && (item as any).type === 'directory') {
+        const dirPath = currentPath ? `${currentPath}/${name}` : name;
+        directories.push(dirPath);
+        
+        // Recursively extract subdirectories
+        if ((item as any).children) {
+          const subDirs = this.extractDirectoryPaths((item as any).children, dirPath);
+          directories.push(...subDirs);
+        }
+      }
+    }
+    
+    return directories;
+  }
+
+  /**
+   * Convert a relative path to an absolute path based on the current terminal PWD
+   * @param relativePath The relative path from terminal command
+   * @returns Absolute path in terminal format
+   */
+  private convertRelativeToAbsolutePath(relativePath: string): string {
+    // If path is already absolute (starts with ~), return as is
+    if (relativePath.startsWith("~")) {
+      return relativePath;
+    }
+
+    // If at root directory, prepend with ~
+    if (this.terminalPwd === "~") {
+      return `~/${relativePath}`;
+    }
+
+    // If in subdirectory, append to current PWD
+    return `${this.terminalPwd}/${relativePath}`;
   }
 }

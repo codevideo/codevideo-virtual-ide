@@ -25,7 +25,7 @@ describe("VirtualIDE", () => {
             expect(files).toEqual(["/test.md", "/test2.md"]);
 
             // ls should also show both files
-            const lsString = virtualIDE.virtualFileExplorer.getLsString();
+            const lsString = virtualIDE.getLsString();
             expect(lsString).toEqual("test.md\ntest2.md");
         });
     });

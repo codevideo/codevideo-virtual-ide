@@ -3,7 +3,7 @@ import { VirtualIDE } from "../../src/VirtualIDE";
 describe("VirtualIDE", () => {
     describe("copy files", () => {
         it("should be able to move a file to another", () => {
-            const virtualIDE = new VirtualIDE(undefined, undefined);
+            const virtualIDE = new VirtualIDE();
             virtualIDE.applyAction({
                 name: "file-explorer-create-file",
                 value: "test.md"
@@ -26,7 +26,7 @@ describe("VirtualIDE", () => {
             expect(files).not.toContain("/test.md");
 
             // ls should also show both files
-            const lsString = virtualIDE.virtualFileExplorer.getLsString();
+            const lsString = virtualIDE.getLsString();
             expect(lsString).toContain("test2.md");
             expect(lsString).not.toContain("test.md");
         });

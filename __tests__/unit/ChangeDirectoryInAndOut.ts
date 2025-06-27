@@ -21,7 +21,6 @@ describe("VirtualIDE", () => {
                 value: "1"
             });
             // assert that both the file-explorer and terminal present working directory as test
-            expect(virtualIDE.virtualFileExplorer.getPresentWorkingDirectory()).toBe("~/test");
             expect(virtualIDE.virtualTerminals[0].getPresentWorkingDirectory()).toBe("~/test");
 
             // move out of the directory back to root
@@ -35,7 +34,6 @@ describe("VirtualIDE", () => {
             });
 
             // assert that both the file-explorer and terminal present working directory as root
-            expect(virtualIDE.virtualFileExplorer.getPresentWorkingDirectory()).toBe("");
             expect(virtualIDE.virtualTerminals[0].getPresentWorkingDirectory()).toBe("~");
         });
     });
