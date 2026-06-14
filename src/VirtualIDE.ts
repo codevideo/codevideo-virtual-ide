@@ -100,14 +100,18 @@ export class VirtualIDE {
 
     // if project is defined, reconstitute the virtual IDE from the project at the given action index
     // if given action index is not defined, reconstitute the virtual IDE from the project at action index 0
+    // NOTE: routing must be EXCLUSIVE (else-if). isValidActions returns an
+    // IActionValidationResult object since codevideo-types 2.1.33+ - an object
+    // is always truthy, so the old non-exclusive `if (isValidActions(project))`
+    // ALSO routed courses/lessons into the actions path and crashed on
+    // `actions.slice`. The Array.isArray + .isValid check preserves the old
+    // strict gating: an array containing any invalid action is not applied.
     if (project) {
       if (isCourse(project)) {
         this.reconstituteFromCourseAtActionIndex(project, initialActionIndex);
-      }
-      if (isLesson(project)) {
+      } else if (isLesson(project)) {
         this.reconstituteFromLessonAtActionIndex(project, initialActionIndex);
-      }
-      if (isValidActions(project)) {
+      } else if (Array.isArray(project) && isValidActions(project).isValid) {
         this.reconstituteFromActionsAtActionIndex(project, initialActionIndex);
       }
     }
