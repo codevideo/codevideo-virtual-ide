@@ -912,7 +912,7 @@ export class VirtualIDE {
    * Gets the project snapshot. Should provide everything to completely recreate an IDE visually, from scratch.
    */
   getCourseSnapshot(): ICourseSnapshot {
-    return {
+    const snapshot: ICourseSnapshot = {
       isUnsavedChangesDialogOpen: this.isUnsavedChangesDialogOpen,
       unsavedFileName: this.unsavedFileName,
       fileExplorerSnapshot: this.getFileExplorerSnapshot(),
@@ -920,8 +920,13 @@ export class VirtualIDE {
       terminalSnapshot: this.getTerminalSnapshot(),
       mouseSnapshot: this.getMouseSnapshot(),
       authorSnapshot: this.getAuthorSnapshot(),
-      clipboardSnapshot: this.getClipboardSnapshot(),
     };
+    // An empty clipboard stays out (missing means empty), so a lesson that never
+    // copies has exactly the snapshot it had before the clipboard existed, and
+    // snapshots stored by older versions still compare equal on replay.
+    const clipboardSnapshot = this.getClipboardSnapshot();
+    if (clipboardSnapshot.text !== "") snapshot.clipboardSnapshot = clipboardSnapshot;
+    return snapshot;
   }
 
   /**

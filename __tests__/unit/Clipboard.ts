@@ -102,6 +102,14 @@ describe("VirtualIDE", () => {
       expect(codeOf(restored, "b.ts")).toEqual("alpha");
     });
 
+    it("leaves an empty clipboard out of the course snapshot, as snapshots were before it existed", () => {
+      const ide = new VirtualIDE();
+      ide.applyActions([...openNewFile("a.ts"), act("editor-type", "no copying here")]);
+      expect("clipboardSnapshot" in ide.getCourseSnapshot()).toBe(false);
+      ide.applyActions([act("clipboard-set-text", "x"), act("clipboard-clear")]);
+      expect("clipboardSnapshot" in ide.getCourseSnapshot()).toBe(false);
+    });
+
     it("starts empty from a snapshot made before the clipboard existed", () => {
       const ide = new VirtualIDE();
       ide.applyAction(act("clipboard-set-text", "stale"));
