@@ -199,7 +199,14 @@ export class VirtualIDE {
    * @param action The action to apply.
    */
   applyAction(action: IAction): void {
-    if (isFileExplorerAction(action)) {
+    // A string compare, so this builds against codevideo-types releases from
+    // before these actions existed.
+    const name: string = action.name;
+    if (name === 'editor-show-diagnostics' || name === 'editor-hide-diagnostics') {
+      // Squiggles are drawn by the IDE renderer and change no file, editor or
+      // caret, so these must not create an editor the way other editor actions do.
+      this.logs.push({ source: 'virtual-ide', type: 'info', message: `Applying display action: ${action.name}`, timestamp: Date.now() });
+    } else if (isFileExplorerAction(action)) {
       if (this.verbose) console.log("VirtualIDE: Applying FILE EXPLORER ACTION", action);
       this.logs.push({ source: 'virtual-ide', type: 'info', message: `Applying FILE EXPLORER action: ${action.name}`, timestamp: Date.now() });
 
