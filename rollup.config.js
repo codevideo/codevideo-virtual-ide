@@ -8,7 +8,8 @@ const external = [
   "@fullstackcraftllc/codevideo-virtual-editor",
   "@fullstackcraftllc/codevideo-virtual-terminal",
   "@fullstackcraftllc/codevideo-virtual-author",
-  "@fullstackcraftllc/codevideo-virtual-mouse"
+  "@fullstackcraftllc/codevideo-virtual-mouse",
+  "@fullstackcraftllc/codevideo-virtual-clipboard"
 ];
 
 export default [

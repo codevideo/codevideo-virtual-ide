@@ -22,12 +22,15 @@ import {
   isMouseAction,
   getRootFileName,
   IFileEntry,
+  isClipboardAction,
+  IClipboardSnapshot,
 } from "@fullstackcraftllc/codevideo-types";
 import { VirtualFileExplorer } from "@fullstackcraftllc/codevideo-virtual-file-explorer";
 import { VirtualMouse } from "@fullstackcraftllc/codevideo-virtual-mouse";
 import { VirtualEditor } from "@fullstackcraftllc/codevideo-virtual-editor";
 import { VirtualTerminal } from "@fullstackcraftllc/codevideo-virtual-terminal";
 import { VirtualAuthor } from "@fullstackcraftllc/codevideo-virtual-author";
+import { VirtualClipboard } from "@fullstackcraftllc/codevideo-virtual-clipboard";
 
 export const supportedTerminalCommands = ["cat", "cd", "cp", "echo", "ls", "mkdir", "mv", "pwd", "touch", "tree"];
 
@@ -49,6 +52,11 @@ export class VirtualIDE {
    * The virtual mouse that represents the mouse cursor.
   */
   public virtualMouse: VirtualMouse;
+
+  /**
+   * The virtual clipboard, shared by every editor so a copy in one file can be pasted in another.
+   */
+  public virtualClipboard: VirtualClipboard;
 
   /**
    * The virtual editors that represent the editing area. Filenames are absolute and also represent the open tabs of the IDE.
@@ -91,6 +99,7 @@ export class VirtualIDE {
     // always initialize to completely empty state
     this.virtualFileExplorer = new VirtualFileExplorer(undefined, this.verbose);
     this.virtualMouse = new VirtualMouse();
+    this.virtualClipboard = new VirtualClipboard(undefined, this.verbose);
     this.virtualEditors = [];
     this.virtualTerminals = [];
     this.virtualAuthors = [];
@@ -123,6 +132,8 @@ export class VirtualIDE {
    * @param virtualEditor The virtual editor to add.
    */
   addVirtualEditor(fileName: string, virtualEditor: VirtualEditor): void {
+    // every editor copies to and pastes from the same clipboard
+    virtualEditor.setClipboard(this.virtualClipboard);
     this.virtualEditors.push({ fileName, virtualEditor });
   }
 
@@ -185,6 +196,9 @@ export class VirtualIDE {
     // mouse snapshot
     this.virtualMouse.applySnapshot(courseSnapshot.mouseSnapshot);
 
+    // clipboard snapshot - snapshots from before the clipboard existed have none, so it starts empty
+    this.virtualClipboard.applySnapshot(courseSnapshot.clipboardSnapshot ?? { text: "" });
+
     // author snapshot
     courseSnapshot.authorSnapshot.authors.forEach((author) => {
       const virtualAuthor = new VirtualAuthor(undefined, this.verbose);
@@ -216,13 +230,20 @@ export class VirtualIDE {
     } else if (isEditorAction(action)) {
       if (this.verbose) console.log("VirtualIDE: Applying EDITOR action", action);
       this.logs.push({ source: 'virtual-ide', type: 'info', message: `Applying EDITOR action: ${action.name}`, timestamp: Date.now() });
-      // if we don't have an editor yet, create one
-      // make schnittstelle great again - it's not our responsibility to create side effects for the benefit of the user
-      if (this.virtualEditors.length === 0) {
-        this.addVirtualEditor(action.value, new VirtualEditor([], undefined, this.verbose));
-        this.currentEditorIndex = 0;
+      // copy, cut and paste need an open file; with none they do nothing,
+      // instead of creating an editor named after their value ("1")
+      const isClipboardKey = name === 'editor-command-c' || name === 'editor-command-x' || name === 'editor-command-v';
+      if (this.virtualEditors.length === 0 && isClipboardKey) {
+        this.logs.push({ source: 'virtual-ide', type: 'info', message: `No open file for ${action.name}`, timestamp: Date.now() });
+      } else {
+        // if we don't have an editor yet, create one
+        // make schnittstelle great again - it's not our responsibility to create side effects for the benefit of the user
+        if (this.virtualEditors.length === 0) {
+          this.addVirtualEditor(action.value, new VirtualEditor([], undefined, this.verbose));
+          this.currentEditorIndex = 0;
+        }
+        this.virtualEditors[this.currentEditorIndex].virtualEditor.applyAction(action);
       }
-      this.virtualEditors[this.currentEditorIndex].virtualEditor.applyAction(action);
     } else if (isTerminalAction(action)) {
       if (this.verbose) console.log("VirtualIDE: Applying TERMINAL action", action);
       this.logs.push({ source: 'virtual-ide', type: 'info', message: `Applying TERMINAL action: ${action.name}`, timestamp: Date.now() });
@@ -242,6 +263,10 @@ export class VirtualIDE {
         this.currentAuthorIndex = 0;
       }
       this.virtualAuthors[this.currentAuthorIndex].applyAction(action);
+    } else if (isClipboardAction(action)) {
+      if (this.verbose) console.log("VirtualIDE: Applying CLIPBOARD action", action);
+      this.logs.push({ source: 'virtual-ide', type: 'info', message: `Applying CLIPBOARD action: ${action.name}`, timestamp: Date.now() });
+      this.virtualClipboard.applyAction(action);
     } else if (isMouseAction(action)) {
       // forward the mouse action to the virtual mouse
       if (this.verbose) console.log("VirtualIDE: Applying MOUSE action", action);
@@ -817,6 +842,13 @@ export class VirtualIDE {
   }
 
   /**
+   * Gets the clipboard snapshot.
+   */
+  getClipboardSnapshot(): IClipboardSnapshot {
+    return this.virtualClipboard.getCurrentClipboardSnapshot();
+  }
+
+  /**
    * Gets the editor snapshot.
    * @returns The editor snapshot.
    */
@@ -888,6 +920,7 @@ export class VirtualIDE {
       terminalSnapshot: this.getTerminalSnapshot(),
       mouseSnapshot: this.getMouseSnapshot(),
       authorSnapshot: this.getAuthorSnapshot(),
+      clipboardSnapshot: this.getClipboardSnapshot(),
     };
   }
 
